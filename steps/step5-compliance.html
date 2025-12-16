@@ -5,6 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>步骤5 - 合规检查</title>
   <link rel="stylesheet" href="../assets/css/shared.css">
+  <style>
+    #markdownPreview {
+      line-height: 1.6;
+    }
+    #markdownPreview h1 {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 0.5em;
+    }
+    #markdownPreview h2 {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.3em;
+    }
+    #markdownPreview h3 {
+      font-size: 1.25em;
+      font-weight: bold;
+      margin: 0.8em 0 0.4em 0;
+    }
+    #markdownPreview p {
+      margin: 0.5em 0;
+    }
+    #markdownPreview ul, #markdownPreview ol {
+      margin: 0.5em 0;
+      padding-left: 2em;
+    }
+    #markdownPreview li {
+      margin: 0.3em 0;
+    }
+    #markdownPreview code {
+      background-color: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    #markdownPreview pre {
+      background-color: #f3f4f6;
+      padding: 1em;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+    #markdownPreview pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+    #markdownPreview blockquote {
+      border-left: 4px solid #3b82f6;
+      padding-left: 1em;
+      margin: 1em 0;
+      color: #6b7280;
+    }
+    #markdownPreview table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    #markdownPreview table th,
+    #markdownPreview table td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5em;
+      text-align: left;
+    }
+    #markdownPreview table th {
+      background-color: #f9fafb;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -41,8 +114,16 @@
       </div>
 
       <div id="resultContainer">
-        <label class="block text-sm font-medium mb-2">检查结果（可编辑）</label>
-        <!-- 动态生成的文本框将插入这里 -->
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium">检查结果</label>
+          <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
+        </div>
+        <div id="previewMode">
+          <div id="markdownPreview" class="input p-4" style="min-height: 400px; overflow-y: auto;"></div>
+        </div>
+        <div id="editMode" class="hidden">
+          <!-- 动态生成的文本框将插入这里 -->
+        </div>
       </div>
 
       <div class="flex space-x-2">
@@ -56,16 +137,24 @@
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/ui.js"></script>
   <script src="../assets/js/api.js"></script>
+  <!-- Markdown 渲染库 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
   <script>
     const checkType = document.getElementById('checkType');
     const prevInputContainer = document.getElementById('prevInputContainer');
     const userReq = document.getElementById('userReq');
     const runBtn = document.getElementById('runBtn');
+    const editBtn = document.getElementById('editBtn');
     const selectAllBtn = document.getElementById('selectAllBtn');
     const exportBtn = document.getElementById('exportBtn');
     const saveBtn = document.getElementById('saveBtn');
     const nextBtn = document.getElementById('nextBtn');
     const resultContainer = document.getElementById('resultContainer');
+    const previewMode = document.getElementById('previewMode');
+    const editMode = document.getElementById('editMode');
+    const markdownPreview = document.getElementById('markdownPreview');
+
+    let currentResultData = null; // 保存当前检查结果
 
     // 渲染上一步结果（支持数组格式）
     function renderPrevInput(result) {
@@ -183,119 +272,127 @@
       }
     }
 
-    // 渲染检查结果（支持数组格式）
-    function renderResult(result) {
-      resultContainer.innerHTML = '<label class="block text-sm font-medium mb-2">检查结果（可编辑）</label>';
-      
+    // 渲染检查结果 Markdown 预览
+    function renderResultPreview(result) {
+      let markdown = '';
       try {
-        let parsedResult = result;
-        if (typeof result === 'string') {
+        let parsedResult = result || currentResultData;
+        if (!parsedResult) return;
+        if (typeof parsedResult === 'string') {
           try {
-            parsedResult = JSON.parse(result);
+            parsedResult = JSON.parse(parsedResult);
+          } catch (e) {
+            if (marked) markdownPreview.innerHTML = marked.parse(parsedResult);
+            else markdownPreview.textContent = parsedResult;
+            return;
+          }
+        }
+        let contentArray = null;
+        if (parsedResult?.data?.outputs?.content && Array.isArray(parsedResult.data.outputs.content)) {
+          contentArray = parsedResult.data.outputs.content;
+        } else if (parsedResult?.content && Array.isArray(parsedResult.content)) {
+          contentArray = parsedResult.content;
+        }
+        if (contentArray && contentArray.length > 0) {
+          contentArray.forEach((item, index) => {
+            markdown += `## ${item.title || `检查结果 ${index + 1}`}\n\n`;
+            markdown += item.content || '';
+            markdown += '\n\n';
+          });
+        } else {
+          markdown = Utils.getResultContent(parsedResult);
+        }
+        if (marked) markdownPreview.innerHTML = marked.parse(markdown);
+        else markdownPreview.textContent = markdown;
+      } catch (e) {
+        console.error('渲染检查结果预览失败:', e);
+        markdownPreview.textContent = Utils.getResultContent(result || currentResultData);
+      }
+    }
+
+    // 渲染检查结果编辑模式
+    function renderResultEdit(result) {
+      editMode.innerHTML = '';
+      try {
+        let parsedResult = result || currentResultData;
+        if (!parsedResult) return;
+        if (typeof parsedResult === 'string') {
+          try {
+            parsedResult = JSON.parse(parsedResult);
           } catch (e) {
             const textarea = document.createElement('textarea');
             textarea.className = 'input';
             textarea.rows = 14;
             textarea.placeholder = '结果将显示在此';
-            textarea.value = result;
-            resultContainer.appendChild(textarea);
+            textarea.value = parsedResult;
+            editMode.appendChild(textarea);
             return;
           }
         }
-        
-        // 检查是否是包含 content 数组的结构
-        if (parsedResult && parsedResult.data && parsedResult.data.outputs && parsedResult.data.outputs.content && Array.isArray(parsedResult.data.outputs.content)) {
-          parsedResult.data.outputs.content.forEach((item, index) => {
+        let contentArray = null;
+        if (parsedResult?.data?.outputs?.content && Array.isArray(parsedResult.data.outputs.content)) {
+          contentArray = parsedResult.data.outputs.content;
+        } else if (parsedResult?.content && Array.isArray(parsedResult.content)) {
+          contentArray = parsedResult.content;
+        }
+        if (contentArray && contentArray.length > 0) {
+          contentArray.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
-            
             const header = document.createElement('div');
             header.className = 'flex items-center gap-3 mb-2';
-            
-            // 选择框
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.className = 'w-4 h-4 text-green-600 rounded focus:ring-green-500';
             checkbox.checked = true;
             checkbox.dataset.itemId = item.id || index;
-            
             const number = document.createElement('span');
             number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-sm font-semibold';
             number.textContent = index + 1;
-            
             const label = document.createElement('label');
             label.className = 'text-sm font-medium flex-1';
             label.textContent = item.title || `检查结果 ${index + 1}`;
-            
             header.appendChild(checkbox);
             header.appendChild(number);
             header.appendChild(label);
-            
             const textarea = document.createElement('textarea');
             textarea.className = 'input';
             textarea.rows = 10;
             textarea.dataset.itemId = item.id || index;
             textarea.value = item.content || '';
-            
             div.appendChild(header);
             div.appendChild(textarea);
-            resultContainer.appendChild(div);
-          });
-        } else if (parsedResult && parsedResult.content && Array.isArray(parsedResult.content)) {
-          parsedResult.content.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
-            
-            const header = document.createElement('div');
-            header.className = 'flex items-center gap-3 mb-2';
-            
-            // 选择框
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'w-4 h-4 text-green-600 rounded focus:ring-green-500';
-            checkbox.checked = true;
-            checkbox.dataset.itemId = item.id || index;
-            
-            const number = document.createElement('span');
-            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-sm font-semibold';
-            number.textContent = index + 1;
-            
-            const label = document.createElement('label');
-            label.className = 'text-sm font-medium flex-1';
-            label.textContent = item.title || `检查结果 ${index + 1}`;
-            
-            header.appendChild(checkbox);
-            header.appendChild(number);
-            header.appendChild(label);
-            
-            const textarea = document.createElement('textarea');
-            textarea.className = 'input';
-            textarea.rows = 10;
-            textarea.dataset.itemId = item.id || index;
-            textarea.value = item.content || '';
-            
-            div.appendChild(header);
-            div.appendChild(textarea);
-            resultContainer.appendChild(div);
+            editMode.appendChild(div);
           });
         } else {
-          // 单个结果
           const textarea = document.createElement('textarea');
           textarea.className = 'input';
           textarea.rows = 14;
           textarea.placeholder = '结果将显示在此';
-          textarea.value = Utils.getResultContent(result);
-          resultContainer.appendChild(textarea);
+          textarea.value = Utils.getResultContent(parsedResult);
+          editMode.appendChild(textarea);
         }
       } catch (e) {
-        console.error('渲染检查结果失败:', e);
+        console.error('渲染检查结果编辑失败:', e);
         const textarea = document.createElement('textarea');
         textarea.className = 'input';
         textarea.rows = 14;
         textarea.placeholder = '结果将显示在此';
-        textarea.value = Utils.getResultContent(result);
-        resultContainer.appendChild(textarea);
+        textarea.value = Utils.getResultContent(result || currentResultData);
+        editMode.appendChild(textarea);
       }
+    }
+
+    // 统一渲染函数
+    function renderResult(result) {
+      currentResultData = result;
+      renderResultPreview(result);
+      renderResultEdit(result);
+      // 默认回到预览模式
+      editMode.classList.add('hidden');
+      previewMode.classList.remove('hidden');
+      editBtn.textContent = '编辑模式';
+      saveBtn.disabled = true;
     }
 
     // 收集上一步结果内容（只收集被选中的）
@@ -348,7 +445,7 @@
 
     // 收集检查结果内容（只收集被选中的）
     function collectResult() {
-      const textareas = resultContainer.querySelectorAll('textarea');
+      const textareas = editMode.querySelectorAll('textarea');
       if (textareas.length === 0) return '';
       
       if (textareas.length === 1) {
@@ -402,6 +499,34 @@
     if (state.step5Result) {
       renderResult(state.step5Result);
     }
+    // 默认预览模式，保存按钮禁用
+    saveBtn.disabled = true;
+
+    // 编辑模式切换
+    editBtn.addEventListener('click', () => {
+      if (editMode.classList.contains('hidden')) {
+        editMode.classList.remove('hidden');
+        previewMode.classList.add('hidden');
+        editBtn.textContent = '预览模式';
+        saveBtn.disabled = false;
+      } else {
+        const resultContent = collectResult();
+        if (resultContent) {
+          try {
+            const parsed = typeof resultContent === 'string' ? JSON.parse(resultContent) : resultContent;
+            currentResultData = parsed;
+            renderResultPreview(parsed);
+          } catch (e) {
+            currentResultData = resultContent;
+            renderResultPreview(resultContent);
+          }
+        }
+        editMode.classList.add('hidden');
+        previewMode.classList.remove('hidden');
+        editBtn.textContent = '编辑模式';
+        saveBtn.disabled = true;
+      }
+    });
 
     runBtn.addEventListener('click', async () => {
       try {

@@ -5,6 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>步骤4 - 写标书</title>
   <link rel="stylesheet" href="../assets/css/shared.css">
+  <style>
+    #markdownPreview {
+      line-height: 1.6;
+    }
+    #markdownPreview h1 {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 0.5em;
+    }
+    #markdownPreview h2 {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.3em;
+    }
+    #markdownPreview h3 {
+      font-size: 1.25em;
+      font-weight: bold;
+      margin: 0.8em 0 0.4em 0;
+    }
+    #markdownPreview p {
+      margin: 0.5em 0;
+    }
+    #markdownPreview ul, #markdownPreview ol {
+      margin: 0.5em 0;
+      padding-left: 2em;
+    }
+    #markdownPreview li {
+      margin: 0.3em 0;
+    }
+    #markdownPreview code {
+      background-color: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    #markdownPreview pre {
+      background-color: #f3f4f6;
+      padding: 1em;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+    #markdownPreview pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+    #markdownPreview blockquote {
+      border-left: 4px solid #3b82f6;
+      padding-left: 1em;
+      margin: 1em 0;
+      color: #6b7280;
+    }
+    #markdownPreview table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    #markdownPreview table th,
+    #markdownPreview table td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5em;
+      text-align: left;
+    }
+    #markdownPreview table th {
+      background-color: #f9fafb;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -37,10 +110,18 @@
       </div>
 
       <div id="resultContainer">
-        <label class="block text-sm font-medium mb-2">标书内容结果（可编辑）</label>
-        <!-- 动态生成的文本框将插入这里 -->
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium"><h1>执行结果</h1></label>
+        </div>
+        <div id="previewMode">
+          <div id="markdownPreview" class="input p-4" style="min-height: 400px; overflow-y: auto;"></div>
+        </div>
+        <div id="editMode" class="hidden">
+          <!-- 动态生成的文本框将插入这里 -->
+        </div>
       </div>
       <div class="flex space-x-2">
+        <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
         <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
         <button id="nextBtn" class="btn">直接下一步</button>
       </div>
@@ -51,27 +132,91 @@
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/ui.js"></script>
   <script src="../assets/js/api.js"></script>
+  <!-- Markdown 渲染库 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
   <script>
     const parseResult = document.getElementById('parseResult');
     const outlineResult = document.getElementById('outlineResult');
     const companyResult = document.getElementById('companyResult');
     const userReq = document.getElementById('userReq');
     const runBtn = document.getElementById('runBtn');
+    const editBtn = document.getElementById('editBtn');
     const saveBtn = document.getElementById('saveBtn');
     const nextBtn = document.getElementById('nextBtn');
     const resultContainer = document.getElementById('resultContainer');
+    const previewMode = document.getElementById('previewMode');
+    const editMode = document.getElementById('editMode');
+    const markdownPreview = document.getElementById('markdownPreview');
+    
+    let currentResultData = null; // 保存当前结果数据，用于在预览和编辑模式间切换
 
-    // 渲染结果内容（支持数组格式）
-    function renderResult(result) {
-      // 清空容器
-      resultContainer.innerHTML = '<label class="block text-sm font-medium mb-2">标书内容结果（可编辑）</label>';
+    // 渲染 Markdown 预览
+    function renderMarkdownPreview(result) {
+      let markdown = '';
+      
+      try {
+        let parsedResult = result || currentResultData;
+        if (!parsedResult) return;
+        
+        if (typeof parsedResult === 'string') {
+          try {
+            parsedResult = JSON.parse(parsedResult);
+          } catch (e) {
+            // 普通文本，直接渲染
+            if (marked) {
+              markdownPreview.innerHTML = marked.parse(parsedResult);
+            } else {
+              markdownPreview.textContent = parsedResult;
+            }
+            return;
+          }
+        }
+        
+        // 检查是否是包含 content 数组的结构
+        let contentArray = null;
+        if (parsedResult && parsedResult.data && parsedResult.data.outputs && parsedResult.data.outputs.content && Array.isArray(parsedResult.data.outputs.content)) {
+          contentArray = parsedResult.data.outputs.content;
+        } else if (parsedResult && parsedResult.content && Array.isArray(parsedResult.content)) {
+          contentArray = parsedResult.content;
+        }
+        
+        if (contentArray && contentArray.length > 0) {
+          // 数组格式：合并所有章节的 Markdown
+          contentArray.forEach((item, index) => {
+            markdown += `## ${item.title || `章节 ${index + 1}`}\n\n`;
+            markdown += item.content || '';
+            markdown += '\n\n';
+          });
+        } else {
+          // 单个结果
+          markdown = Utils.getResultContent(parsedResult);
+        }
+        
+        // 渲染 Markdown
+        if (marked) {
+          markdownPreview.innerHTML = marked.parse(markdown);
+        } else {
+          markdownPreview.textContent = markdown;
+        }
+      } catch (e) {
+        console.error('渲染预览失败:', e);
+        markdownPreview.textContent = Utils.getResultContent(result || currentResultData);
+      }
+    }
+
+    // 渲染编辑模式（支持数组格式）
+    function renderEditMode(result) {
+      // 清空编辑容器
+      editMode.innerHTML = '';
       
       try {
         // 尝试解析为 JSON
-        let parsedResult = result;
-        if (typeof result === 'string') {
+        let parsedResult = result || currentResultData;
+        if (!parsedResult) return;
+        
+        if (typeof parsedResult === 'string') {
           try {
-            parsedResult = JSON.parse(result);
+            parsedResult = JSON.parse(parsedResult);
           } catch (e) {
             // 不是 JSON，当作普通文本处理
             const textarea = document.createElement('textarea');
@@ -79,8 +224,8 @@
             textarea.rows = 14;
             textarea.id = 'resultArea';
             textarea.placeholder = '结果将显示在此';
-            textarea.value = result;
-            resultContainer.appendChild(textarea);
+            textarea.value = parsedResult;
+            editMode.appendChild(textarea);
             return;
           }
         }
@@ -126,7 +271,7 @@
             
             div.appendChild(header);
             div.appendChild(textarea);
-            resultContainer.appendChild(div);
+            editMode.appendChild(div);
           });
         } else if (parsedResult && parsedResult.content && Array.isArray(parsedResult.content)) {
           // 直接是 content 数组（callDifyWorkflow 返回 outputs）
@@ -168,7 +313,7 @@
             
             div.appendChild(header);
             div.appendChild(textarea);
-            resultContainer.appendChild(div);
+            editMode.appendChild(div);
           });
         } else {
           // 单个结果：创建单个文本框
@@ -177,25 +322,32 @@
           textarea.rows = 14;
           textarea.id = 'resultArea';
           textarea.placeholder = '结果将显示在此';
-          textarea.value = Utils.getResultContent(result);
-          resultContainer.appendChild(textarea);
+          textarea.value = Utils.getResultContent(parsedResult);
+          editMode.appendChild(textarea);
         }
       } catch (e) {
-        console.error('渲染结果失败:', e);
+        console.error('渲染编辑模式失败:', e);
         // 解析失败，当作普通文本处理
         const textarea = document.createElement('textarea');
         textarea.className = 'input';
         textarea.rows = 14;
         textarea.id = 'resultArea';
         textarea.placeholder = '结果将显示在此';
-        textarea.value = Utils.getResultContent(result);
-        resultContainer.appendChild(textarea);
+        textarea.value = Utils.getResultContent(result || currentResultData);
+        editMode.appendChild(textarea);
       }
+    }
+    
+    // 统一的结果渲染函数
+    function renderResult(result) {
+      currentResultData = result;
+      renderMarkdownPreview(result);
+      renderEditMode(result);
     }
 
     // 收集所有结果内容（只收集被勾选的内容）
     function collectResultContent() {
-      const textareas = resultContainer.querySelectorAll('textarea');
+      const textareas = editMode.querySelectorAll('textarea');
       if (textareas.length === 0) return '';
       
       if (textareas.length === 1) {
@@ -259,6 +411,40 @@
     if (state.step4Result) {
       renderResult(state.step4Result);
     }
+    
+    // 初始化：默认预览模式，保存按钮禁用
+    saveBtn.disabled = true;
+    
+    // 编辑模式切换
+    editBtn.addEventListener('click', () => {
+      if (editMode.classList.contains('hidden')) {
+        // 切换到编辑模式
+        editMode.classList.remove('hidden');
+        previewMode.classList.add('hidden');
+        editBtn.textContent = '预览模式';
+        // 启用保存按钮
+        saveBtn.disabled = false;
+      } else {
+        // 切换到预览模式
+        // 从编辑模式收集数据并更新预览
+        const resultContent = collectResultContent();
+        if (resultContent) {
+          try {
+            const parsed = typeof resultContent === 'string' ? JSON.parse(resultContent) : resultContent;
+            currentResultData = parsed;
+            renderMarkdownPreview(parsed);
+          } catch (e) {
+            currentResultData = resultContent;
+            renderMarkdownPreview(resultContent);
+          }
+        }
+        editMode.classList.add('hidden');
+        previewMode.classList.remove('hidden');
+        editBtn.textContent = '编辑模式';
+        // 禁用保存按钮
+        saveBtn.disabled = true;
+      }
+    });
 
     runBtn.addEventListener('click', async () => {
       try {
@@ -308,6 +494,12 @@
         
         // 使用完整响应数据渲染结果
         renderResult(responseData);
+        
+        // 执行后切换到预览模式
+        editMode.classList.add('hidden');
+        previewMode.classList.remove('hidden');
+        editBtn.textContent = '编辑模式';
+        saveBtn.disabled = true;
         
         // 保存完整响应数据
         const result = responseData;

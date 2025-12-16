@@ -149,6 +149,8 @@
     viewModeBtn.classList.add('btn-secondary');
     previewModeBtn.classList.add('btn-primary');
     previewModeBtn.classList.remove('btn-secondary');
+    // 默认预览模式下，保存按钮禁用
+    saveBtn.disabled = true;
     
     // 模式切换
     viewModeBtn.addEventListener('click', () => {
@@ -158,6 +160,8 @@
       viewModeBtn.classList.remove('btn-secondary');
       previewModeBtn.classList.remove('btn-primary');
       previewModeBtn.classList.add('btn-secondary');
+      // 进入编辑模式，启用保存
+      saveBtn.disabled = false;
     });
     
     previewModeBtn.addEventListener('click', () => {
@@ -169,6 +173,8 @@
       previewModeBtn.classList.remove('btn-secondary');
       viewModeBtn.classList.remove('btn-primary');
       viewModeBtn.classList.add('btn-secondary');
+      // 回到预览模式，禁用保存
+      saveBtn.disabled = true;
     });
     
     // 内容变化时更新预览

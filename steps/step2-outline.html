@@ -5,6 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>步骤2 - 生成标书大纲</title>
   <link rel="stylesheet" href="../assets/css/shared.css">
+  <style>
+    #markdownPreview {
+      line-height: 1.6;
+    }
+    #markdownPreview h1 {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 0.5em;
+    }
+    #markdownPreview h2 {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.3em;
+    }
+    #markdownPreview h3 {
+      font-size: 1.25em;
+      font-weight: bold;
+      margin: 0.8em 0 0.4em 0;
+    }
+    #markdownPreview p {
+      margin: 0.5em 0;
+    }
+    #markdownPreview ul, #markdownPreview ol {
+      margin: 0.5em 0;
+      padding-left: 2em;
+    }
+    #markdownPreview li {
+      margin: 0.3em 0;
+    }
+    #markdownPreview code {
+      background-color: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    #markdownPreview pre {
+      background-color: #f3f4f6;
+      padding: 1em;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+    #markdownPreview pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+    #markdownPreview blockquote {
+      border-left: 4px solid #3b82f6;
+      padding-left: 1em;
+      margin: 1em 0;
+      color: #6b7280;
+    }
+    #markdownPreview table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    #markdownPreview table th,
+    #markdownPreview table td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5em;
+      text-align: left;
+    }
+    #markdownPreview table th {
+      background-color: #f9fafb;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -39,10 +112,18 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-2">大纲结果（可编辑）</label>
-        <textarea id="resultArea" class="input" rows="14" placeholder="结果将显示在此"></textarea>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium"><h1>执行结果</h1></label>
+                  </div>
+        <div id="previewMode">
+          <div id="markdownPreview" class="input p-4" style="min-height: 300px; overflow-y: auto;"></div>
+        </div>
+        <div id="editMode" class="hidden">
+          <textarea id="resultArea" class="input" rows="14" placeholder="结果将显示在此"></textarea>
+        </div>
       </div>
       <div class="flex space-x-2">
+        <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
         <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
         <button id="nextBtn" class="btn">直接下一步</button>
       </div>
@@ -53,6 +134,8 @@
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/ui.js"></script>
   <script src="../assets/js/api.js"></script>
+  <!-- Markdown 渲染库 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
   <script>
     const prevInput = document.getElementById('prevInput');
     const content1 = document.getElementById('content1');
@@ -60,14 +143,54 @@
     const runBtn = document.getElementById('runBtn');
     const saveBtn = document.getElementById('saveBtn');
     const nextBtn = document.getElementById('nextBtn');
+    const editBtn = document.getElementById('editBtn');
     const resultArea = document.getElementById('resultArea');
+    const previewMode = document.getElementById('previewMode');
+    const editMode = document.getElementById('editMode');
+    const markdownPreview = document.getElementById('markdownPreview');
+
+    // 渲染 Markdown 预览
+    function renderMarkdownPreview() {
+      const markdown = resultArea.value;
+      if (marked) {
+        markdownPreview.innerHTML = marked.parse(markdown);
+      } else {
+        markdownPreview.textContent = markdown;
+      }
+    }
 
     // 读取状态
     const state = Store.getState();
     if (state.step1Result) prevInput.value = Utils.getResultContent(state.step1Result);
     if (state.step2Content1) content1.value = state.step2Content1;
     if (state.step2TenderType) tenderType.value = state.step2TenderType;
-    if (state.step2Result) resultArea.value = Utils.getResultContent(state.step2Result);
+    if (state.step2Result) {
+      resultArea.value = Utils.getResultContent(state.step2Result);
+      renderMarkdownPreview();
+    }
+
+    // 初始化：默认预览模式，保存按钮禁用
+    saveBtn.disabled = true;
+
+    // 编辑按钮点击事件
+    editBtn.addEventListener('click', () => {
+      if (editMode.classList.contains('hidden')) {
+        // 切换到编辑模式
+        editMode.classList.remove('hidden');
+        previewMode.classList.add('hidden');
+        editBtn.textContent = '预览模式';
+        // 启用保存按钮
+        saveBtn.disabled = false;
+      } else {
+        // 切换到预览模式
+        renderMarkdownPreview();
+        editMode.classList.add('hidden');
+        previewMode.classList.remove('hidden');
+        editBtn.textContent = '编辑模式';
+        // 禁用保存按钮
+        saveBtn.disabled = true;
+      }
+    });
 
     runBtn.addEventListener('click', async () => {
       try {
@@ -83,6 +206,7 @@
         };
         const result = await API.callDifyWorkflow(apiKey, inputs);
         resultArea.value = Utils.getResultContent(result);
+        renderMarkdownPreview();
         Store.setState({
           step2Result: result,
           step2Content1: content1.value.trim(),
@@ -94,6 +218,7 @@
     });
 
     saveBtn.addEventListener('click', () => {
+      if (saveBtn.disabled) return;
       Store.setState({
         step2Result: resultArea.value,
         step2Content1: content1.value.trim(),
