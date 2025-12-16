@@ -1,0 +1,617 @@
+app:
+  description: 最重要一步，根据标书大纲、公司信息、用户需求说明，分章节写标书。
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: 标书流程-写标书
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.0.26@4f1c4ded3d189719b7dd54e9d4e5b26f724f3632f3dfaa299491b42accc112c8
+kind: app
+version: 0.3.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: 1765793482251-source-1765847794254-target
+      selected: false
+      source: '1765793482251'
+      sourceHandle: source
+      target: '1765847794254'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765850378016'
+        sourceType: iteration-start
+        targetType: code
+      id: 1765850378016start-source-1765850974928-target
+      source: 1765850378016start
+      sourceHandle: source
+      target: '1765850974928'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765850378016'
+        sourceType: code
+        targetType: llm
+      id: 1765850974928-source-1765851194086-target
+      source: '1765850974928'
+      sourceHandle: source
+      target: '1765851194086'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765847794254-source-1765855836320-target
+      source: '1765847794254'
+      sourceHandle: source
+      target: '1765855836320'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: iteration
+      id: 1765855836320-source-1765850378016-target
+      source: '1765855836320'
+      sourceHandle: source
+      target: '1765850378016'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: iteration
+        targetType: end
+      id: 1765850378016-source-1765850690062-target
+      source: '1765850378016'
+      sourceHandle: source
+      target: '1765850690062'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765850378016'
+        sourceType: llm
+        targetType: code
+      id: 1765851194086-source-1765867077218-target
+      source: '1765851194086'
+      sourceHandle: source
+      target: '1765867077218'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 招标需求解析
+          max_length: 50000
+          options: []
+          required: false
+          type: paragraph
+          variable: previous_result
+        - label: 标书大纲
+          max_length: 500000
+          options: []
+          required: true
+          type: paragraph
+          variable: outline_content
+        - label: 公司资料
+          max_length: 50000
+          options: []
+          required: false
+          type: paragraph
+          variable: company_data
+        - label: 用户需求
+          max_length: 5000
+          options: []
+          required: false
+          type: paragraph
+          variable: user_requirements
+      height: 168
+      id: '1765793482251'
+      position:
+        x: -160.9129354405064
+        y: 266.0785176100957
+      positionAbsolute:
+        x: -160.9129354405064
+        y: 266.0785176100957
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1765793482251'
+          - outline_content
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: af57c13c-64d6-4fda-bba6-b0c55d402f43
+          role: system
+          text: "你将收到一段 Markdown 格式的投标文件目录。\n请将其解析为【打平的一维 JSON 数组结构】。\n\n【层级识别规则】\n\
+            1. # 表示一级章节（level = 1）\n2. ## 表示二级章节（level = 2）\n3. ### 表示三级章节（level =\
+            \ 3）\n4. 以此类推，# 的数量决定 level\n5. 所有章节都必须输出到同一个数组中，不使用 children 结构\n\n【输出结构】\n\
+            请将解析结果输出为如下 JSON 格式，并严格遵守：\n\n{\n  \"sections\": [\n    {\n      \"id\"\
+            : \"string\",\n      \"level\": number,\n      \"order\": number,\n  \
+            \    \"title\": \"string\",\n      \"norm_title\": \"string\",\n     \
+            \ \"path\": [\"string\"]\n    }\n  ]\n}\n\n【字段规则说明】\n1. sections 是一个打平的一维数组，包含所有层级的章节\n\
+            2. level 表示章节层级，从 1 开始\n3. order 表示该章节在【同一父级下】的顺序，从 1 开始\n4. id 为章节唯一标识，按层级生成，例如：\n\
+            \   - 一级：1\n   - 二级：1.1\n   - 三级：1.1.1\n5. title 必须保留原始 Markdown 中的完整标题文本，不要改写\n\
+            6. norm_title 为去除序号、括号、编号后的规范标题文本\n7. path 为章节路径数组，包含从一级章节到当前章节的 norm_title，例如：\n\
+            \   [\"投标函及投标承诺\", \"投标函\", \"说明\"]\n\n【重要要求】\n- 严格只输出 JSON，不要任何解释、注释或\
+            \ Markdown\n- 不要遗漏任何目录项\n- 严格保持原始顺序\n- 不要合并、拆分或改写标题内容\n\nMarkdown 内容如下：\n\
+            {{#context#}}"
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              sections:
+                items:
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: string
+                    level:
+                      type: number
+                    norm_title:
+                      type: string
+                    order:
+                      type: number
+                    path:
+                      items:
+                        type: string
+                      type: array
+                    title:
+                      type: string
+                  required:
+                  - id
+                  - level
+                  - order
+                  - title
+                  - norm_title
+                  - path
+                  type: object
+                type: array
+            required:
+            - sections
+            type: object
+        structured_output_enabled: true
+        title: 大纲To数组
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: '1765847794254'
+      position:
+        x: 188.94045470384134
+        y: 282
+      positionAbsolute:
+        x: 188.94045470384134
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        error_handle_mode: terminated
+        height: 178
+        is_parallel: false
+        iterator_selector:
+        - '1765855836320'
+        - result
+        output_selector:
+        - '1765867077218'
+        - records
+        output_type: array[object]
+        parallel_nums: 10
+        selected: false
+        start_node_id: 1765850378016start
+        title: 分章遍历
+        type: iteration
+        width: 951.0735982573383
+      height: 178
+      id: '1765850378016'
+      position:
+        x: 14.223370848441505
+        y: 635.0770964256795
+      positionAbsolute:
+        x: 14.223370848441505
+        y: 635.0770964256795
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 951
+      zIndex: 1
+    - data:
+        desc: ''
+        isInIteration: true
+        selected: false
+        title: ''
+        type: iteration-start
+      draggable: false
+      height: 48
+      id: 1765850378016start
+      parentId: '1765850378016'
+      position:
+        x: 24
+        y: 68
+      positionAbsolute:
+        x: 38.223370848441505
+        y: 703.0770964256795
+      selectable: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-iteration-start
+      width: 44
+      zIndex: 1002
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - '1765850378016'
+          - output
+          variable: content
+        selected: false
+        title: 结束
+        type: end
+      height: 90
+      id: '1765850690062'
+      position:
+        x: 1024.4512029098237
+        y: 635.0770964256795
+      positionAbsolute:
+        x: 1024.4512029098237
+        y: 635.0770964256795
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: "import json\ndef main(arg1: dict) -> dict:\n    # 做内容优化或清理，json.loads(arg1)\n\
+          \    data = arg1\n    id =  data.get(\"id\", \"\")\n    level = data.get(\"\
+          level\", 0)\n    order = data.get(\"order\", 0)\n    title = data.get(\"\
+          title\", \"\")\n    norm_title = data.get(\"norm_title\", \"\")\n    path_list\
+          \ = data.get(\"path\", [])\n    # 将 path 数组转为 LLM 友好的字符串\n    if isinstance(path_list,\
+          \ list):\n        path_str = \" > \".join(path_list)\n    else:\n      \
+          \  path_str = str(path_list)\n    return {\n        \"id\": id,\n      \
+          \  \"level\": level,\n        \"title\": title,\n        \"norm_title\"\
+          :norm_title,\n        \"path_str\":path_str\n    }\n"
+        code_language: python3
+        desc: ''
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765850378016'
+        outputs:
+          id:
+            children: null
+            type: string
+          level:
+            children: null
+            type: number
+          norm_title:
+            children: null
+            type: string
+          path_str:
+            children: null
+            type: string
+          title:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行
+        type: code
+        variables:
+        - value_selector:
+          - '1765850378016'
+          - item
+          variable: arg1
+      height: 54
+      id: '1765850974928'
+      parentId: '1765850378016'
+      position:
+        x: 128
+        y: 68
+      positionAbsolute:
+        x: 142.2233708484415
+        y: 703.0770964256795
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+      zIndex: 1002
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765850378016'
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 2a30aa24-06a2-43ce-8f8a-bca38b51d4cf
+          role: system
+          text: '你正在为一份正式的投标文件撰写【技术文件】章节内容。
+
+
+            你将收到：
+
+            - 当前章节标题
+
+            - 当前章节路径（表示其在标书中的完整位置）
+
+            - 公司背景信息
+
+            - 用户补充说明或特殊要求
+
+            - （如有）招标文件中的相关技术要求
+
+
+            你的任务是：
+
+            仅针对【当前章节】撰写符合投标文件规范的正式正文内容。
+
+
+            【章节信息】
+
+            - 章节标题：{{#1765850974928.norm_title#}}
+
+            - 章节路径：{{#1765850974928.path_str#}}
+
+
+            【写作要求】
+
+            1. 输出内容将被直接拼接进最终投标文件
+
+            2. 严禁输出任何与标书正文无关的内容
+
+            3. 不要出现解释、总结、说明性语句
+
+            4. 不要出现“本章节将…”“以下是…”“如上所述”等引导性话术
+
+            5. 不要提及“AI”“模型”“提示词”“根据要求”等任何生成痕迹
+
+            6. 不要重复章节路径，只保留本章节标题即可
+
+
+            【格式要求】
+
+            - 使用 Markdown 格式
+
+            - 以当前章节标题作为 Markdown 标题输出（如 ###）
+
+            - 标题只出现一次
+
+            - 正文语言正式、客观、偏第三人称
+
+            - 内容风格符合政府/国企/大型企业投标文件
+
+
+            【内容要求】
+
+            - 紧密围绕章节主题展开
+
+            - 内容应专业、完整、可直接用于投标
+
+            - 如为技术类章节，可从技术方案、实施方式、管理措施、保障机制等角度展开
+
+            - 如为管理/承诺类章节，应体现制度、流程、责任与可执行性
+
+
+            【禁止事项（重要）】
+
+            - 不输出任何 JSON
+
+            - 不输出代码块
+
+            - 不输出说明性段落
+
+            - 不输出空行占位内容
+
+            - 不输出“（可补充）”“（略）”等占位词
+
+
+            现在开始输出本章节的 Markdown 正文：'
+        - id: 53196ef3-d4b9-4b79-9c12-376a32c04aaf
+          role: user
+          text: '【用户补充说明】
+
+            {{#1765793482251.user_requirements#}}
+
+            【公司背景信息】
+
+            {{#1765793482251.company_data#}}
+
+            '
+        selected: false
+        title: 写章节
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: '1765851194086'
+      parentId: '1765850378016'
+      position:
+        x: 387.0735982573383
+        y: 68
+      positionAbsolute:
+        x: 401.2969691057798
+        y: 703.0770964256795
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+      zIndex: 1002
+    - data:
+        code: "def main(arg1: dict) -> dict:\n    \n    # 2. 提取列表\n    data_list =\
+          \ arg1.get(\"sections\", [])\n    return {\n        \"result\": data_list\n\
+          \    }"
+        code_language: python3
+        desc: ''
+        outputs:
+          result:
+            children: null
+            type: array[object]
+        selected: true
+        title: 章节变量
+        type: code
+        variables:
+        - value_selector:
+          - '1765847794254'
+          - structured_output
+          variable: arg1
+      height: 54
+      id: '1765855836320'
+      position:
+        x: 491.51418302871184
+        y: 282
+      positionAbsolute:
+        x: 491.51418302871184
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: "def main(arg1: str, title: str, id: str) -> dict:\n    # 构造数组数据，保留占位符\n\
+          \    records_list = [{\n        \"id\": id,\n        \"title\": title,\n\
+          \        \"content\": arg1\n    }]\n\n    return {\n        \"records\"\
+          : records_list\n    }"
+        code_language: python3
+        desc: ''
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765850378016'
+        outputs:
+          records:
+            children: null
+            type: array[object]
+        selected: false
+        title: 合并数据
+        type: code
+        variables:
+        - value_selector:
+          - '1765851194086'
+          - text
+          variable: arg1
+        - value_selector:
+          - '1765850974928'
+          - title
+          variable: title
+        - value_selector:
+          - '1765850974928'
+          - id
+          variable: id
+      height: 54
+      id: '1765867077218'
+      parentId: '1765850378016'
+      position:
+        x: 691.0735982573383
+        y: 68
+      positionAbsolute:
+        x: 705.2969691057798
+        y: 703.0770964256795
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+      zIndex: 1002
+    viewport:
+      x: 156.1336596499267
+      y: -107.56743822438148
+      zoom: 0.8217899760770201

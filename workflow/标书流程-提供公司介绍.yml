@@ -1,0 +1,337 @@
+app:
+  description: 第三步，提取公司信息，根据上传的公司信息，提取公司介绍，资质等信息。
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: 标书流程-提供公司介绍
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.0.26@4f1c4ded3d189719b7dd54e9d4e5b26f724f3632f3dfaa299491b42accc112c8
+kind: app
+version: 0.3.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 10
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: document-extractor
+      id: 1765762325240-source-1765762362001-target
+      selected: false
+      source: '1765762325240'
+      sourceHandle: source
+      target: '1765762362001'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: document-extractor
+        targetType: llm
+      id: 1765762362001-source-1765762337361-target
+      selected: false
+      source: '1765762362001'
+      sourceHandle: source
+      target: '1765762337361'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: end
+      id: 1765762337361-source-1765762459844-target
+      selected: false
+      source: '1765762337361'
+      sourceHandle: source
+      target: '1765762459844'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 标书需求
+          max_length: 50000
+          options: []
+          required: false
+          type: paragraph
+          variable: user_requirements
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - document
+          allowed_file_upload_methods:
+          - local_file
+          label: 招标文件
+          max_length: 10
+          options: []
+          required: true
+          type: file-list
+          variable: company_files
+      height: 116
+      id: '1765762325240'
+      position:
+        x: 103.02982620344073
+        y: 290.37448225579664
+      positionAbsolute:
+        x: 103.02982620344073
+        y: 290.37448225579664
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1765762362001'
+          - text
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 4cad7985-4603-4d49-be12-c9fbf859c6cb
+          role: system
+          text: '你是一个专业的招投标文件辅助助手，负责将用户提供的“公司原始资料”整理为【可直接用于投标文件的公司介绍内容】。
+
+
+            请严格遵守以下规则：
+
+            一、核心目标
+
+            - 将零散、重复、不规范的公司信息整理为结构清晰、表述正式的公司介绍
+
+            - 输出内容将被后续“生成标书正文”流程直接引用
+
+            - 输出必须稳定、可复用，不得随意发挥
+
+
+            二、允许整理的内容范围
+
+            仅限于用户已提供的信息，包括但不限于：
+
+            - 公司基本情况
+
+            - 经营与技术能力
+
+            - 资质与认证情况
+
+            - 主要产品与解决方案
+
+            - 类似项目业绩
+
+            - 项目团队与服务能力
+
+            - 服务与运维保障能力
+
+            - 企业信誉与合规情况
+
+
+            三、严格禁止事项（非常重要）
+
+            - 不得编造、补充、推测任何用户未明确提供的信息
+
+            - 不得虚构项目名称、客户名称、合同金额、证书或年份
+
+            - 不得使用“业内领先、国内一流、实力雄厚”等营销或评价性语言
+
+            - 对缺失或未提供的信息，不得自行补全
+
+
+            四、缺失信息处理规则
+
+            - 若某一章节用户未提供任何相关信息，可整体省略该章节
+
+            - 若章节存在但部分字段缺失，仅整理已提供内容
+
+            - 不使用“假设”“推测”“可能”等表述
+
+
+            五、语言与风格要求
+
+            - 使用正式、客观、第三人称书面表达
+
+            - 表述简洁、清晰，适用于政府及企事业单位招投标文件
+
+            - 避免冗长段落，每一段内容应可直接复制使用
+
+
+            六、结构要求（必须遵守）
+
+            - 严格按照以下固定结构输出
+
+            - 不得调整顺序、合并章节或新增章节
+
+            - 章节标题使用 Markdown 二级标题（##）
+
+
+            固定输出结构如下：
+
+
+            ## 公司基本情况
+
+
+            ## 经营与技术能力
+
+
+            ## 资质与认证情况
+
+
+            ## 主要产品与解决方案
+
+
+            ## 类似项目业绩
+
+
+            ## 项目团队与服务能力
+
+
+            ## 服务与运维保障能力
+
+
+            ## 企业信誉与合规情况
+
+
+            七、输出格式
+
+            - 仅输出 Markdown 正文
+
+            - 不输出任何解释、说明或多余提示 explain
+
+            '
+        - id: 682bc54c-c7fa-4ada-93f0-8ebd68ae7425
+          role: user
+          text: '【公司相关资料】
+
+            {{#context#}}
+
+            【用户说明】
+
+            {{#1765762325240.user_requirements#}}'
+        selected: true
+        title: LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: '1765762337361'
+      position:
+        x: 676
+        y: 282
+      positionAbsolute:
+        x: 676
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        is_array_file: true
+        selected: false
+        title: 文档提取器
+        type: document-extractor
+        variable_selector:
+        - '1765762325240'
+        - company_files
+      height: 92
+      id: '1765762362001'
+      position:
+        x: 376
+        y: 282
+      positionAbsolute:
+        x: 376
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - '1765762337361'
+          - text
+          variable: text
+        selected: false
+        title: 结束
+        type: end
+      height: 90
+      id: '1765762459844'
+      position:
+        x: 980
+        y: 282
+      positionAbsolute:
+        x: 980
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    viewport:
+      x: -24.315783233185016
+      y: 45.62247980294302
+      zoom: 0.9552829363824373

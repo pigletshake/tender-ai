@@ -1,0 +1,331 @@
+app:
+  description: 第二步，生成标书大纲，根据解析的招标文件生成标书所需的大纲。
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: 标书流程-生成标书大纲
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.0.26@4f1c4ded3d189719b7dd54e9d4e5b26f724f3632f3dfaa299491b42accc112c8
+kind: app
+version: 0.3.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 10
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: end
+      id: 1765762337361-source-1765762459844-target
+      selected: false
+      source: '1765762337361'
+      sourceHandle: source
+      target: '1765762459844'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: 1765762325240-source-1765762337361-target
+      source: '1765762325240'
+      sourceHandle: source
+      target: '1765762337361'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: true
+        title: 开始
+        type: start
+        variables:
+        - label: 标书需求
+          max_length: 50000
+          options: []
+          required: false
+          type: paragraph
+          variable: content1
+        - label: 标书解析内容
+          max_length: 500000
+          options: []
+          required: true
+          type: paragraph
+          variable: previous_result
+        - label: 标书类型
+          max_length: 50
+          options: []
+          required: false
+          type: text-input
+          variable: tender_type
+      height: 142
+      id: '1765762325240'
+      position:
+        x: 103.02982620344073
+        y: 290.37448225579664
+      positionAbsolute:
+        x: 103.02982620344073
+        y: 290.37448225579664
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1765762325240'
+          - previous_result
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 4cad7985-4603-4d49-be12-c9fbf859c6cb
+          role: system
+          text: '你是一名资深政府及企业采购投标顾问，熟悉各类招标文件结构、评分标准与合规要求。
+
+            你的任务是：依据招标需求与用户补充说明，生成一份结构清晰、可直接用于撰写投标文件的《投标文件大纲》。
+
+            请遵循以下原则：
+
+            大纲结构应完整、规范、符合常见招标文件习惯
+
+            不虚构未提供的技术指标、资质条件或商务条款
+
+            未明确要求的内容，可保留为通用章节占位
+
+            章节标题专业、正式，避免营销或宣传性语言
+
+            用户输入说明（给模型看的规则）
+
+            你将获得两类输入信息：
+
+            招标需求
+
+            来源：招标文件原文
+
+            内容可能包含：项目背景、采购范围、技术要求、商务要求、评分办法、投标人资格条件等
+
+            用户说明
+
+            由用户手动补充
+
+            可能包含：
+
+            关注重点（如：资质、技术、价格、交付周期）
+
+            行业背景说明
+
+            投标策略或特殊要求
+
+            请以招标需求为主，用户说明为补充与调整依据。
+
+            你的任务（Task）
+
+            请完成以下工作：
+
+            梳理投标文件应包含的主要章节结构
+
+            按照招标文件的逻辑与评分导向，合理安排章节顺序
+
+            对每个一级章节，给出必要的二级章节（不必过度细化）
+
+            若招标需求中存在明确要求的内容（如：资质、人员、技术方案），请在大纲中明确体现
+
+            若信息不足，可使用中性占位章节名称，不做具体内容编造
+
+            输出要求（非常重要）
+
+            仅输出 Markdown 格式的投标文件大纲
+
+            使用多级标题结构，例如：
+
+            # 一、
+
+            ## （一）
+
+            不输出解释说明、不输出分析过程、不输出额外文字
+
+            内容应可直接作为投标文件目录或写作骨架使用
+
+            输出示例（结构示意）
+
+            # 一、投标函及投标承诺
+
+
+            ## （一）投标函
+
+            ## （二）投标承诺声明
+
+
+            # 二、公司基本情况与资质证明
+
+
+            ## （一）公司简介
+
+            ## （二）营业执照及相关资质
+
+            ## （三）类似项目业绩
+
+
+            # 三、项目理解与总体实施方案
+
+
+            ## （一）项目背景理解
+
+            ## （二）总体技术路线
+
+            ## （三）实施组织与管理方案
+
+
+            # 四、技术方案与服务方案
+
+
+            ## （一）系统总体架构设计
+
+            ## （二）功能实现方案
+
+            ## （三）系统安全与稳定性保障
+
+            ## （四）实施进度计划
+
+
+            # 五、项目团队与人员配置
+
+
+            ## （一）项目组织结构
+
+            ## （二）关键人员安排
+
+
+            # 六、售后服务与运维保障方案
+
+
+            ## （一）服务体系说明
+
+            ## （二）响应机制与服务承诺
+
+
+            # 七、商务条款与报价说明
+
+
+            ## （一）商务响应情况
+
+            ## （二）报价构成说明
+
+
+            # 八、其他需要说明的事项
+
+            本输出仅用于内容结构规划与写作辅助，
+
+            不构成正式投标文件或任何法律意见。'
+        - id: 682bc54c-c7fa-4ada-93f0-8ebd68ae7425
+          role: user
+          text: '【招标需求】
+
+            {{#context#}}
+
+            【用户说明】
+
+            {{#1765762325240.content1#}}'
+        selected: false
+        title: LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: '1765762337361'
+      position:
+        x: 511.6507857299915
+        y: 290.37448225579664
+      positionAbsolute:
+        x: 511.6507857299915
+        y: 290.37448225579664
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - '1765762337361'
+          - text
+          variable: text
+        selected: false
+        title: 结束
+        type: end
+      height: 90
+      id: '1765762459844'
+      position:
+        x: 827.1656988317118
+        y: 290.37448225579664
+      positionAbsolute:
+        x: 827.1656988317118
+        y: 290.37448225579664
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    viewport:
+      x: -54.315783233185016
+      y: -38.37752019705704
+      zoom: 0.9552829363824373

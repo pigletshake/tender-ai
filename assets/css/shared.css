@@ -43,6 +43,13 @@ body {
   color: #fff;
 }
 
+.btn:disabled,
+.btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .input, textarea {
   width: 100%;
   padding: 10px 12px;
