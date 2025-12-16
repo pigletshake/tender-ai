@@ -7,7 +7,7 @@ const DIFY_CONFIG = {
     step3: 'app-IqcrIwuYXQmVBjXWDAn1e6uz',
     step4: 'app-nJIgslrIw5gjUGUjdCZvBN8U',
     step5: 'app-s3g0APfB2hEDxDXOEBbO1z1e',
-    step6: '',
+    step6: 'app-H1kyEiTk7JPMKlK5UT0trY54',
   },
   inputKeys: {
     step1FileKey: 'tender_documents',

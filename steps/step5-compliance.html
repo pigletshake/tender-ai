@@ -396,11 +396,13 @@
     }
 
     // 收集上一步结果内容（只收集被选中的）
+    // 返回：单个文本框时返回字符串，多个文本框时返回数组
     function collectPrevInput() {
       const textareas = prevInputContainer.querySelectorAll('textarea');
       if (textareas.length === 0) return '';
       
       if (textareas.length === 1) {
+        // 单个文本框：返回字符串
         return textareas[0].value;
       } else {
         // 多个文本框：构建数组结构，只收集被选中的
@@ -421,25 +423,8 @@
           }
         });
         
-        // 尝试保持原始结构
-        const state = Store.getState();
-        if (state.step4Result) {
-          try {
-            const original = typeof state.step4Result === 'string' ? JSON.parse(state.step4Result) : state.step4Result;
-            if (original && original.data && original.data.outputs) {
-              original.data.outputs.content = contentArray;
-              return JSON.stringify(original);
-            }
-          } catch (e) {}
-        }
-        
-        return JSON.stringify({
-          data: {
-            outputs: {
-              content: contentArray
-            }
-          }
-        });
+        // 返回数组对象，而不是 JSON 字符串
+        return contentArray;
       }
     }
 
@@ -532,13 +517,26 @@
       try {
         const apiKey = API.DIFY_CONFIG.apiKeys.step5;
         const prevInputContent = collectPrevInput();
-        if (!prevInputContent.trim()) {
+        
+        // 验证输入：字符串需要非空，数组需要至少一个元素
+        if (typeof prevInputContent === 'string') {
+          if (!prevInputContent.trim()) {
+            UI.showError('请先填写上一步结果（步骤4输出）');
+            return;
+          }
+        } else if (Array.isArray(prevInputContent)) {
+          if (prevInputContent.length === 0) {
+            UI.showError('请先填写上一步结果（步骤4输出）');
+            return;
+          }
+        } else {
           UI.showError('请先填写上一步结果（步骤4输出）');
           return;
         }
+        
         const inputs = {
           check_type: checkType.value,
-          previous_result: prevInputContent,
+          previous_result: prevInputContent, // 可以是字符串或数组
         };
         if (userReq.value.trim()) {
           inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
