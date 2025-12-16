@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>步骤6 - 最终合并</title>
+  <link rel="stylesheet" href="../assets/css/shared.css">
+  <style>
+    #markdownPreview {
+      line-height: 1.6;
+    }
+    #markdownPreview h1 {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 0.5em;
+    }
+    #markdownPreview h2 {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin: 1em 0 0.5em 0;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.3em;
+    }
+    #markdownPreview h3 {
+      font-size: 1.25em;
+      font-weight: bold;
+      margin: 0.8em 0 0.4em 0;
+    }
+    #markdownPreview p {
+      margin: 0.5em 0;
+    }
+    #markdownPreview ul, #markdownPreview ol {
+      margin: 0.5em 0;
+      padding-left: 2em;
+    }
+    #markdownPreview li {
+      margin: 0.3em 0;
+    }
+    #markdownPreview code {
+      background-color: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    #markdownPreview pre {
+      background-color: #f3f4f6;
+      padding: 1em;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+    #markdownPreview pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+    #markdownPreview blockquote {
+      border-left: 4px solid #3b82f6;
+      padding-left: 1em;
+      margin: 1em 0;
+      color: #6b7280;
+    }
+    #markdownPreview table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    #markdownPreview table th,
+    #markdownPreview table td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5em;
+      text-align: left;
+    }
+    #markdownPreview table th {
+      background-color: #f9fafb;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="../index.html" class="text-blue-600 underline text-sm">返回主页</a>
+    <h1 class="text-2xl font-bold mb-4">步骤6：最终合并</h1>
+
+    <div class="card space-y-4">
+      <div class="flex space-x-2 mb-4">
+        <button id="viewModeBtn" class="btn btn-secondary">编辑模式</button>
+        <button id="previewModeBtn" class="btn btn-primary">预览模式</button>
+      </div>
+      
+      <div id="editMode" class="hidden">
+        <label class="block text-sm font-medium mb-2">合并结果（可编辑）</label>
+        <textarea id="resultArea" class="input" rows="20" placeholder="结果将显示在此"></textarea>
+      </div>
+      
+      <div id="previewMode">
+        <label class="block text-sm font-medium mb-2">Markdown 预览</label>
+        <div id="markdownPreview" class="input p-4 prose max-w-none" style="min-height: 400px; overflow-y: auto;"></div>
+      </div>
+
+      <div class="flex space-x-2">
+        <button id="saveBtn" class="btn btn-secondary">保存</button>
+        <button id="exportWordBtn" class="btn btn-primary">导出Word</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/store.js"></script>
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/ui.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <!-- Markdown 渲染库 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+  <script>
+    const resultArea = document.getElementById('resultArea');
+    const saveBtn = document.getElementById('saveBtn');
+    const exportWordBtn = document.getElementById('exportWordBtn');
+    const viewModeBtn = document.getElementById('viewModeBtn');
+    const previewModeBtn = document.getElementById('previewModeBtn');
+    const editMode = document.getElementById('editMode');
+    const previewMode = document.getElementById('previewMode');
+    const markdownPreview = document.getElementById('markdownPreview');
+
+    // 读取状态，优先展示合并后的内容
+    const state = Store.getState();
+    if (state.step6Result) {
+      resultArea.value = Utils.getResultContent(state.step6Result);
+    } else if (state.step5Result) {
+      resultArea.value = Utils.getResultContent(state.step5Result);
+    }
+    
+    // 渲染 Markdown 预览
+    function renderMarkdownPreview() {
+      const markdown = resultArea.value;
+      if (marked) {
+        markdownPreview.innerHTML = marked.parse(markdown);
+      } else {
+        markdownPreview.textContent = markdown;
+      }
+    }
+    
+    // 初始化预览
+    renderMarkdownPreview();
+    
+    // 设置初始按钮状态（默认预览模式）
+    viewModeBtn.classList.remove('btn-primary');
+    viewModeBtn.classList.add('btn-secondary');
+    previewModeBtn.classList.add('btn-primary');
+    previewModeBtn.classList.remove('btn-secondary');
+    
+    // 模式切换
+    viewModeBtn.addEventListener('click', () => {
+      editMode.classList.remove('hidden');
+      previewMode.classList.add('hidden');
+      viewModeBtn.classList.add('btn-primary');
+      viewModeBtn.classList.remove('btn-secondary');
+      previewModeBtn.classList.remove('btn-primary');
+      previewModeBtn.classList.add('btn-secondary');
+    });
+    
+    previewModeBtn.addEventListener('click', () => {
+      // 更新预览内容
+      renderMarkdownPreview();
+      editMode.classList.add('hidden');
+      previewMode.classList.remove('hidden');
+      previewModeBtn.classList.add('btn-primary');
+      previewModeBtn.classList.remove('btn-secondary');
+      viewModeBtn.classList.remove('btn-primary');
+      viewModeBtn.classList.add('btn-secondary');
+    });
+    
+    // 内容变化时更新预览
+    resultArea.addEventListener('input', () => {
+      renderMarkdownPreview();
+    });
+
+    // 保存按钮
+    saveBtn.addEventListener('click', () => {
+      Store.setState({
+        step6Result: resultArea.value
+      });
+      alert('已保存到本地');
+    });
+
+    // 导出Word按钮
+    exportWordBtn.addEventListener('click', async () => {
+      try {
+        const content = resultArea.value.trim();
+        if (!content) {
+          UI.showError('请先填写内容');
+          return;
+        }
+
+        // 获取所有步骤的结果
+        const state = Store.getState();
+        const allResults = {
+          step1: state.step1Result,
+          step2: state.step2Result,
+          step3: state.step3Result,
+          step4: state.step4Result,
+          step5: state.step5Result,
+          step6: content
+        };
+
+        // 调用后端导出接口
+        const formData = new FormData();
+        formData.append('data', JSON.stringify(allResults));
+        formData.append('format', 'word');
+
+        const response = await fetch(API.API_BASE_URL + '/export', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error('导出失败');
+        }
+
+        // 下载文件
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `标书文档.docx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (err) {
+        UI.showError('导出失败: ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
+

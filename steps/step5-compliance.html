@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>步骤5 - 合规检查</title>
+  <link rel="stylesheet" href="../assets/css/shared.css">
+</head>
+<body>
+  <div class="container">
+    <a href="../index.html" class="text-blue-600 underline text-sm">返回主页</a>
+    <h1 class="text-2xl font-bold mb-4">步骤5：合规检查</h1>
+
+    <div class="card space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-2">选择检查类型</label>
+        <select id="checkType" class="input">
+          <option value="all">1. 检查全部</option>
+          <option value="completeness">2. 完整性检查（章节完整性、必备材料完整性）</option>
+          <option value="consistency">3. 一致性检查（金额一致性、工期一致性、人员配置一致性、文本逻辑一致性）</option>
+          <option value="qualification">4. 资质符合性检查（已满足项、缺失项/不符合项）</option>
+          <option value="risk">5. 风险条款检查（霸王条款识别、废标风险表达）</option>
+          <option value="language">6. 语言质量检查（错别字、病句/可读性）</option>
+        </select>
+      </div>
+
+      <div id="prevInputContainer">
+        <label class="block text-sm font-medium mb-2">上一步结果（可编辑，默认取步骤4输出）</label>
+        <!-- 动态生成的文本框将插入这里 -->
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">用户需求（可选）</label>
+        <textarea id="userReq" class="input" rows="4" placeholder="补充检查关注点，例如重点检查金额一致性等"></textarea>
+      </div>
+
+      <div class="flex space-x-2">
+        <button id="selectAllBtn" class="btn btn-secondary">全选</button>
+        <button id="runBtn" class="btn btn-primary">执行检查</button>
+        <button id="exportBtn" class="btn btn-primary">没问题了，开始导出</button>
+      </div>
+
+      <div id="resultContainer">
+        <label class="block text-sm font-medium mb-2">检查结果（可编辑）</label>
+        <!-- 动态生成的文本框将插入这里 -->
+      </div>
+
+      <div class="flex space-x-2">
+        <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
+        <button id="nextBtn" class="btn">直接下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/store.js"></script>
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/ui.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script>
+    const checkType = document.getElementById('checkType');
+    const prevInputContainer = document.getElementById('prevInputContainer');
+    const userReq = document.getElementById('userReq');
+    const runBtn = document.getElementById('runBtn');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const resultContainer = document.getElementById('resultContainer');
+
+    // 渲染上一步结果（支持数组格式）
+    function renderPrevInput(result) {
+      prevInputContainer.innerHTML = '<label class="block text-sm font-medium mb-2">上一步结果（可编辑，默认取步骤4输出）</label>';
+      
+      try {
+        let parsedResult = result;
+        if (typeof result === 'string') {
+          try {
+            parsedResult = JSON.parse(result);
+          } catch (e) {
+            // 不是 JSON，当作普通文本处理
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 8;
+            textarea.placeholder = '请输入标书内容或粘贴上一步输出';
+            textarea.value = result;
+            prevInputContainer.appendChild(textarea);
+            return;
+          }
+        }
+        
+        // 检查是否是包含 content 数组的结构
+        if (parsedResult && parsedResult.data && parsedResult.data.outputs && parsedResult.data.outputs.content && Array.isArray(parsedResult.data.outputs.content)) {
+          parsedResult.data.outputs.content.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
+            
+            const header = document.createElement('div');
+            header.className = 'flex items-center gap-3 mb-2';
+            
+            // 选择框
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'w-4 h-4 text-blue-600 rounded focus:ring-blue-500';
+            checkbox.checked = true;
+            checkbox.dataset.itemId = item.id || index;
+            
+            const number = document.createElement('span');
+            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold';
+            number.textContent = index + 1;
+            
+            const label = document.createElement('label');
+            label.className = 'text-sm font-medium flex-1';
+            label.textContent = item.title || `章节 ${index + 1}`;
+            
+            header.appendChild(checkbox);
+            header.appendChild(number);
+            header.appendChild(label);
+            
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 8;
+            textarea.dataset.itemId = item.id || index;
+            textarea.value = item.content || '';
+            
+            div.appendChild(header);
+            div.appendChild(textarea);
+            prevInputContainer.appendChild(div);
+          });
+        } else if (parsedResult && parsedResult.content && Array.isArray(parsedResult.content)) {
+          parsedResult.content.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
+            
+            const header = document.createElement('div');
+            header.className = 'flex items-center gap-3 mb-2';
+            
+            // 选择框
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'w-4 h-4 text-blue-600 rounded focus:ring-blue-500';
+            checkbox.checked = true;
+            checkbox.dataset.itemId = item.id || index;
+            
+            const number = document.createElement('span');
+            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold';
+            number.textContent = index + 1;
+            
+            const label = document.createElement('label');
+            label.className = 'text-sm font-medium flex-1';
+            label.textContent = item.title || `章节 ${index + 1}`;
+            
+            header.appendChild(checkbox);
+            header.appendChild(number);
+            header.appendChild(label);
+            
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 8;
+            textarea.dataset.itemId = item.id || index;
+            textarea.value = item.content || '';
+            
+            div.appendChild(header);
+            div.appendChild(textarea);
+            prevInputContainer.appendChild(div);
+          });
+        } else {
+          // 单个结果
+          const textarea = document.createElement('textarea');
+          textarea.className = 'input';
+          textarea.rows = 8;
+          textarea.placeholder = '请输入标书内容或粘贴上一步输出';
+          textarea.value = Utils.getResultContent(result);
+          prevInputContainer.appendChild(textarea);
+        }
+      } catch (e) {
+        console.error('渲染上一步结果失败:', e);
+        const textarea = document.createElement('textarea');
+        textarea.className = 'input';
+        textarea.rows = 8;
+        textarea.placeholder = '请输入标书内容或粘贴上一步输出';
+        textarea.value = Utils.getResultContent(result);
+        prevInputContainer.appendChild(textarea);
+      }
+    }
+
+    // 渲染检查结果（支持数组格式）
+    function renderResult(result) {
+      resultContainer.innerHTML = '<label class="block text-sm font-medium mb-2">检查结果（可编辑）</label>';
+      
+      try {
+        let parsedResult = result;
+        if (typeof result === 'string') {
+          try {
+            parsedResult = JSON.parse(result);
+          } catch (e) {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 14;
+            textarea.placeholder = '结果将显示在此';
+            textarea.value = result;
+            resultContainer.appendChild(textarea);
+            return;
+          }
+        }
+        
+        // 检查是否是包含 content 数组的结构
+        if (parsedResult && parsedResult.data && parsedResult.data.outputs && parsedResult.data.outputs.content && Array.isArray(parsedResult.data.outputs.content)) {
+          parsedResult.data.outputs.content.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
+            
+            const header = document.createElement('div');
+            header.className = 'flex items-center gap-3 mb-2';
+            
+            // 选择框
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'w-4 h-4 text-green-600 rounded focus:ring-green-500';
+            checkbox.checked = true;
+            checkbox.dataset.itemId = item.id || index;
+            
+            const number = document.createElement('span');
+            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-sm font-semibold';
+            number.textContent = index + 1;
+            
+            const label = document.createElement('label');
+            label.className = 'text-sm font-medium flex-1';
+            label.textContent = item.title || `检查结果 ${index + 1}`;
+            
+            header.appendChild(checkbox);
+            header.appendChild(number);
+            header.appendChild(label);
+            
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 10;
+            textarea.dataset.itemId = item.id || index;
+            textarea.value = item.content || '';
+            
+            div.appendChild(header);
+            div.appendChild(textarea);
+            resultContainer.appendChild(div);
+          });
+        } else if (parsedResult && parsedResult.content && Array.isArray(parsedResult.content)) {
+          parsedResult.content.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
+            
+            const header = document.createElement('div');
+            header.className = 'flex items-center gap-3 mb-2';
+            
+            // 选择框
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'w-4 h-4 text-green-600 rounded focus:ring-green-500';
+            checkbox.checked = true;
+            checkbox.dataset.itemId = item.id || index;
+            
+            const number = document.createElement('span');
+            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-sm font-semibold';
+            number.textContent = index + 1;
+            
+            const label = document.createElement('label');
+            label.className = 'text-sm font-medium flex-1';
+            label.textContent = item.title || `检查结果 ${index + 1}`;
+            
+            header.appendChild(checkbox);
+            header.appendChild(number);
+            header.appendChild(label);
+            
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 10;
+            textarea.dataset.itemId = item.id || index;
+            textarea.value = item.content || '';
+            
+            div.appendChild(header);
+            div.appendChild(textarea);
+            resultContainer.appendChild(div);
+          });
+        } else {
+          // 单个结果
+          const textarea = document.createElement('textarea');
+          textarea.className = 'input';
+          textarea.rows = 14;
+          textarea.placeholder = '结果将显示在此';
+          textarea.value = Utils.getResultContent(result);
+          resultContainer.appendChild(textarea);
+        }
+      } catch (e) {
+        console.error('渲染检查结果失败:', e);
+        const textarea = document.createElement('textarea');
+        textarea.className = 'input';
+        textarea.rows = 14;
+        textarea.placeholder = '结果将显示在此';
+        textarea.value = Utils.getResultContent(result);
+        resultContainer.appendChild(textarea);
+      }
+    }
+
+    // 收集上一步结果内容（只收集被选中的）
+    function collectPrevInput() {
+      const textareas = prevInputContainer.querySelectorAll('textarea');
+      if (textareas.length === 0) return '';
+      
+      if (textareas.length === 1) {
+        return textareas[0].value;
+      } else {
+        // 多个文本框：构建数组结构，只收集被选中的
+        const contentArray = [];
+        Array.from(textareas).forEach(textarea => {
+          const parentDiv = textarea.closest('div');
+          const checkbox = parentDiv?.querySelector('input[type="checkbox"]');
+          
+          // 只收集被选中的内容
+          if (!checkbox || checkbox.checked) {
+            const header = parentDiv?.querySelector('.flex.items-center');
+            const label = header?.querySelector('label');
+            contentArray.push({
+              id: textarea.dataset.itemId || '',
+              title: label?.textContent || '',
+              content: textarea.value
+            });
+          }
+        });
+        
+        // 尝试保持原始结构
+        const state = Store.getState();
+        if (state.step4Result) {
+          try {
+            const original = typeof state.step4Result === 'string' ? JSON.parse(state.step4Result) : state.step4Result;
+            if (original && original.data && original.data.outputs) {
+              original.data.outputs.content = contentArray;
+              return JSON.stringify(original);
+            }
+          } catch (e) {}
+        }
+        
+        return JSON.stringify({
+          data: {
+            outputs: {
+              content: contentArray
+            }
+          }
+        });
+      }
+    }
+
+    // 收集检查结果内容（只收集被选中的）
+    function collectResult() {
+      const textareas = resultContainer.querySelectorAll('textarea');
+      if (textareas.length === 0) return '';
+      
+      if (textareas.length === 1) {
+        return textareas[0].value;
+      } else {
+        const contentArray = [];
+        Array.from(textareas).forEach(textarea => {
+          const parentDiv = textarea.closest('div');
+          const checkbox = parentDiv?.querySelector('input[type="checkbox"]');
+          
+          // 只收集被选中的内容
+          if (!checkbox || checkbox.checked) {
+            const header = parentDiv?.querySelector('.flex.items-center');
+            const label = header?.querySelector('label');
+            contentArray.push({
+              id: textarea.dataset.itemId || '',
+              title: label?.textContent || '',
+              content: textarea.value
+            });
+          }
+        });
+        
+        const state = Store.getState();
+        if (state.step5Result) {
+          try {
+            const original = typeof state.step5Result === 'string' ? JSON.parse(state.step5Result) : state.step5Result;
+            if (original && original.data && original.data.outputs) {
+              original.data.outputs.content = contentArray;
+              return JSON.stringify(original);
+            }
+          } catch (e) {}
+        }
+        
+        return JSON.stringify({
+          data: {
+            outputs: {
+              content: contentArray
+            }
+          }
+        });
+      }
+    }
+
+    // 读取状态
+    const state = Store.getState();
+    if (state.step4Result) {
+      renderPrevInput(state.step4Result);
+    }
+    if (state.step5CheckType) checkType.value = state.step5CheckType;
+    if (state.step5UserReq) userReq.value = state.step5UserReq;
+    if (state.step5Result) {
+      renderResult(state.step5Result);
+    }
+
+    runBtn.addEventListener('click', async () => {
+      try {
+        const apiKey = API.DIFY_CONFIG.apiKeys.step5;
+        const prevInputContent = collectPrevInput();
+        if (!prevInputContent.trim()) {
+          UI.showError('请先填写上一步结果（步骤4输出）');
+          return;
+        }
+        const inputs = {
+          check_type: checkType.value,
+          previous_result: prevInputContent,
+        };
+        if (userReq.value.trim()) {
+          inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
+        }
+
+        // 调用 API 获取完整响应
+        const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs,
+            response_mode: 'blocking',
+            user: API.DIFY_CONFIG.user,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData?.message || errorData?.data?.error || `API调用失败: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        if (responseData?.data?.error) {
+          throw new Error(responseData.data.error);
+        }
+        
+        // 渲染结果（支持数组格式）
+        renderResult(responseData);
+        
+        // 保存完整响应数据
+        const result = responseData;
+        Store.setState({
+          step5Result: result,
+          step5CheckType: checkType.value,
+          step5UserReq: userReq.value.trim(),
+        });
+      } catch (err) {
+        UI.showError(err.message);
+      }
+    });
+
+    // 全选/取消全选功能
+    let isAllSelected = true;
+    selectAllBtn.addEventListener('click', () => {
+      // 获取所有 checkbox（包括上一步结果和检查结果）
+      const allCheckboxes = [
+        ...prevInputContainer.querySelectorAll('input[type="checkbox"]'),
+        ...resultContainer.querySelectorAll('input[type="checkbox"]')
+      ];
+      
+      if (allCheckboxes.length === 0) return;
+      
+      // 切换所有 checkbox 的状态
+      isAllSelected = !isAllSelected;
+      allCheckboxes.forEach(checkbox => {
+        checkbox.checked = isAllSelected;
+      });
+      
+      // 更新按钮文本
+      selectAllBtn.textContent = isAllSelected ? '全选' : '取消全选';
+    });
+
+    // 收集所有步骤内容并合并为 Markdown 格式
+    function collectAllContentAsMarkdown() {
+      const state = Store.getState();
+      let markdown = '# 标书文档\n\n';
+      
+      // 步骤1：解析招标文件
+      if (state.step1Result) {
+        markdown += '## 一、招标文件解析结果\n\n';
+        markdown += Utils.getResultContent(state.step1Result) + '\n\n';
+      }
+      
+      // 步骤2：标书大纲
+      if (state.step2Result) {
+        markdown += '## 二、标书大纲\n\n';
+        markdown += Utils.getResultContent(state.step2Result) + '\n\n';
+      }
+      
+      // 步骤3：公司资料
+      if (state.step3Result) {
+        markdown += '## 三、公司资料\n\n';
+        markdown += Utils.getResultContent(state.step3Result) + '\n\n';
+      }
+      
+      // 步骤4：标书内容
+      if (state.step4Result) {
+        markdown += '## 四、标书内容\n\n';
+        try {
+          const step4Data = typeof state.step4Result === 'string' ? JSON.parse(state.step4Result) : state.step4Result;
+          if (step4Data && step4Data.data && step4Data.data.outputs && step4Data.data.outputs.content && Array.isArray(step4Data.data.outputs.content)) {
+            step4Data.data.outputs.content.forEach((item, index) => {
+              markdown += `### ${item.title || `章节 ${index + 1}`}\n\n`;
+              markdown += item.content + '\n\n';
+            });
+          } else if (step4Data && step4Data.content && Array.isArray(step4Data.content)) {
+            step4Data.content.forEach((item, index) => {
+              markdown += `### ${item.title || `章节 ${index + 1}`}\n\n`;
+              markdown += item.content + '\n\n';
+            });
+          } else {
+            markdown += Utils.getResultContent(state.step4Result) + '\n\n';
+          }
+        } catch (e) {
+          markdown += Utils.getResultContent(state.step4Result) + '\n\n';
+        }
+      }
+      
+      // 步骤5：合规检查结果
+      if (state.step5Result) {
+        markdown += '## 五、合规检查结果\n\n';
+        try {
+          const step5Data = typeof state.step5Result === 'string' ? JSON.parse(state.step5Result) : state.step5Result;
+          if (step5Data && step5Data.data && step5Data.data.outputs && step5Data.data.outputs.content && Array.isArray(step5Data.data.outputs.content)) {
+            step5Data.data.outputs.content.forEach((item, index) => {
+              markdown += `### ${item.title || `检查项 ${index + 1}`}\n\n`;
+              markdown += item.content + '\n\n';
+            });
+          } else if (step5Data && step5Data.content && Array.isArray(step5Data.content)) {
+            step5Data.content.forEach((item, index) => {
+              markdown += `### ${item.title || `检查项 ${index + 1}`}\n\n`;
+              markdown += item.content + '\n\n';
+            });
+          } else {
+            markdown += Utils.getResultContent(state.step5Result) + '\n\n';
+          }
+        } catch (e) {
+          markdown += Utils.getResultContent(state.step5Result) + '\n\n';
+        }
+      }
+      
+      return markdown;
+    }
+
+    // "没问题了，开始导出"按钮
+    exportBtn.addEventListener('click', () => {
+      // 先保存当前步骤的结果
+      const resultContent = collectResult();
+      Store.setState({
+        step5Result: resultContent,
+        step5CheckType: checkType.value,
+        step5UserReq: userReq.value.trim(),
+      });
+      
+      // 收集所有内容并合并为 Markdown
+      const mergedContent = collectAllContentAsMarkdown();
+      
+      // 保存合并后的内容
+      Store.setState({
+        step6Result: mergedContent
+      });
+      
+      // 跳转到步骤6
+      window.location.href = 'step6-merge.html';
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const resultContent = collectResult();
+      Store.setState({
+        step5Result: resultContent,
+        step5CheckType: checkType.value,
+        step5UserReq: userReq.value.trim(),
+      });
+      window.location.href = 'step6-merge.html';
+    });
+
+    nextBtn.addEventListener('click', () => {
+      window.location.href = 'step6-merge.html';
+    });
+  </script>
+</body>
+</html>
+

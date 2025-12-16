@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>步骤4 - 写标书</title>
+  <link rel="stylesheet" href="../assets/css/shared.css">
+</head>
+<body>
+  <div class="container">
+    <a href="../index.html" class="text-blue-600 underline text-sm">返回主页</a>
+    <h1 class="text-2xl font-bold mb-4">步骤4：写标书</h1>
+
+    <div class="card space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-2">标书解析结果（来自步骤1，可编辑）</label>
+        <textarea id="parseResult" class="input" rows="4" placeholder="暂无数据，需先完成步骤1"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">标书大纲（来自步骤2，可编辑）</label>
+        <textarea id="outlineResult" class="input" rows="6" placeholder="暂无数据，需先完成步骤2"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">公司资料（来自步骤3，可编辑）</label>
+        <textarea id="companyResult" class="input" rows="6" placeholder="暂无数据，需先完成步骤3"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">用户需求（可选）</label>
+        <textarea id="userReq" class="input" rows="4" placeholder="请输入用户需求或补充说明"></textarea>
+      </div>
+
+      <div class="flex space-x-2">
+        <button id="runBtn" class="btn btn-primary">执行</button>
+      </div>
+
+      <div id="resultContainer">
+        <label class="block text-sm font-medium mb-2">标书内容结果（可编辑）</label>
+        <!-- 动态生成的文本框将插入这里 -->
+      </div>
+      <div class="flex space-x-2">
+        <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
+        <button id="nextBtn" class="btn">直接下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/store.js"></script>
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/ui.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script>
+    const parseResult = document.getElementById('parseResult');
+    const outlineResult = document.getElementById('outlineResult');
+    const companyResult = document.getElementById('companyResult');
+    const userReq = document.getElementById('userReq');
+    const runBtn = document.getElementById('runBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const resultContainer = document.getElementById('resultContainer');
+
+    // 渲染结果内容（支持数组格式）
+    function renderResult(result) {
+      // 清空容器
+      resultContainer.innerHTML = '<label class="block text-sm font-medium mb-2">标书内容结果（可编辑）</label>';
+      
+      try {
+        // 尝试解析为 JSON
+        let parsedResult = result;
+        if (typeof result === 'string') {
+          try {
+            parsedResult = JSON.parse(result);
+          } catch (e) {
+            // 不是 JSON，当作普通文本处理
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 14;
+            textarea.id = 'resultArea';
+            textarea.placeholder = '结果将显示在此';
+            textarea.value = result;
+            resultContainer.appendChild(textarea);
+            return;
+          }
+        }
+        
+        // 检查是否是包含 content 数组的结构（从 API 返回的完整结构）
+        if (parsedResult && parsedResult.data && parsedResult.data.outputs && parsedResult.data.outputs.content && Array.isArray(parsedResult.data.outputs.content)) {
+          // 数组格式：为每个元素创建文本框
+          parsedResult.data.outputs.content.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
+            
+            // 创建头部容器（序号、勾选框、标题）
+            const header = document.createElement('div');
+            header.className = 'flex items-center gap-3 mb-2';
+            
+            // 序号
+            const number = document.createElement('span');
+            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold';
+            number.textContent = index + 1;
+            
+            // 勾选框
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'w-4 h-4 text-blue-600 rounded focus:ring-blue-500';
+            checkbox.checked = true;
+            checkbox.dataset.itemId = item.id || index;
+            
+            // 标题
+            const label = document.createElement('label');
+            label.className = 'text-sm font-medium flex-1';
+            label.textContent = item.title || `内容 ${index + 1}`;
+            
+            header.appendChild(number);
+            header.appendChild(checkbox);
+            header.appendChild(label);
+            
+            // 文本框
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 10;
+            textarea.dataset.itemId = item.id || index;
+            textarea.value = item.content || '';
+            
+            div.appendChild(header);
+            div.appendChild(textarea);
+            resultContainer.appendChild(div);
+          });
+        } else if (parsedResult && parsedResult.content && Array.isArray(parsedResult.content)) {
+          // 直接是 content 数组（callDifyWorkflow 返回 outputs）
+          parsedResult.content.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
+            
+            // 创建头部容器（序号、勾选框、标题）
+            const header = document.createElement('div');
+            header.className = 'flex items-center gap-3 mb-2';
+            
+            // 序号
+            const number = document.createElement('span');
+            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold';
+            number.textContent = index + 1;
+            
+            // 勾选框
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'w-4 h-4 text-blue-600 rounded focus:ring-blue-500';
+            checkbox.checked = true;
+            checkbox.dataset.itemId = item.id || index;
+            
+            // 标题
+            const label = document.createElement('label');
+            label.className = 'text-sm font-medium flex-1';
+            label.textContent = item.title || `内容 ${index + 1}`;
+            
+            header.appendChild(number);
+            header.appendChild(checkbox);
+            header.appendChild(label);
+            
+            // 文本框
+            const textarea = document.createElement('textarea');
+            textarea.className = 'input';
+            textarea.rows = 10;
+            textarea.dataset.itemId = item.id || index;
+            textarea.value = item.content || '';
+            
+            div.appendChild(header);
+            div.appendChild(textarea);
+            resultContainer.appendChild(div);
+          });
+        } else {
+          // 单个结果：创建单个文本框
+          const textarea = document.createElement('textarea');
+          textarea.className = 'input';
+          textarea.rows = 14;
+          textarea.id = 'resultArea';
+          textarea.placeholder = '结果将显示在此';
+          textarea.value = Utils.getResultContent(result);
+          resultContainer.appendChild(textarea);
+        }
+      } catch (e) {
+        console.error('渲染结果失败:', e);
+        // 解析失败，当作普通文本处理
+        const textarea = document.createElement('textarea');
+        textarea.className = 'input';
+        textarea.rows = 14;
+        textarea.id = 'resultArea';
+        textarea.placeholder = '结果将显示在此';
+        textarea.value = Utils.getResultContent(result);
+        resultContainer.appendChild(textarea);
+      }
+    }
+
+    // 收集所有结果内容（只收集被勾选的内容）
+    function collectResultContent() {
+      const textareas = resultContainer.querySelectorAll('textarea');
+      if (textareas.length === 0) return '';
+      
+      if (textareas.length === 1) {
+        // 单个文本框
+        return textareas[0].value;
+      } else {
+        // 多个文本框：构建数组结构，只收集被勾选的内容
+        const contentArray = [];
+        Array.from(textareas).forEach(textarea => {
+          // 找到对应的勾选框（在同一 div 中）
+          const parentDiv = textarea.closest('div');
+          const checkbox = parentDiv?.querySelector('input[type="checkbox"]');
+          
+          // 只收集被勾选的内容
+          if (!checkbox || checkbox.checked) {
+            // 获取标题（从 label 中获取）
+            const header = parentDiv?.querySelector('.flex.items-center');
+            const label = header?.querySelector('label');
+            const title = label?.textContent || '';
+            
+            contentArray.push({
+              id: textarea.dataset.itemId || '',
+              title: title,
+              content: textarea.value
+            });
+          }
+        });
+        
+        // 尝试从 state 中获取原始数据结构，保持格式一致
+        const state = Store.getState();
+        if (state.step4Result) {
+          try {
+            const original = typeof state.step4Result === 'string' ? JSON.parse(state.step4Result) : state.step4Result;
+            if (original && original.data && original.data.outputs) {
+              // 保持原始结构，只更新 content 数组
+              original.data.outputs.content = contentArray;
+              return JSON.stringify(original);
+            }
+          } catch (e) {
+            // 如果解析失败，使用新结构
+          }
+        }
+        
+        // 如果没有原始结构，创建新的结构
+        return JSON.stringify({
+          data: {
+            outputs: {
+              content: contentArray
+            }
+          }
+        });
+      }
+    }
+
+    // 读取已有状态
+    const state = Store.getState();
+    if (state.step1Result) parseResult.value = Utils.getResultContent(state.step1Result);
+    if (state.step2Result) outlineResult.value = Utils.getResultContent(state.step2Result);
+    if (state.step3Result) companyResult.value = Utils.getResultContent(state.step3Result);
+    if (state.step4UserReq) userReq.value = state.step4UserReq;
+    if (state.step4Result) {
+      renderResult(state.step4Result);
+    }
+
+    runBtn.addEventListener('click', async () => {
+      try {
+        if (!outlineResult.value.trim()) {
+          UI.showError('请先完成步骤2并生成标书大纲');
+          return;
+        }
+        // 允许公司资料为空，但提示
+        if (!companyResult.value.trim()) {
+          if (!confirm('未读取到公司资料，继续执行？')) return;
+        }
+        const apiKey = API.DIFY_CONFIG.apiKeys.step4;
+        const inputs = {
+          outline_content: outlineResult.value.trim(),
+          company_data: companyResult.value.trim(),
+        };
+        if (parseResult.value.trim()) {
+          inputs.previous_result = parseResult.value.trim();
+        }
+        if (userReq.value.trim()) {
+          inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
+        }
+
+        // 调用 API 获取完整响应
+        const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs,
+            response_mode: 'blocking',
+            user: API.DIFY_CONFIG.user,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData?.message || errorData?.data?.error || `API调用失败: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        if (responseData?.data?.error) {
+          throw new Error(responseData.data.error);
+        }
+        
+        // 使用完整响应数据渲染结果
+        renderResult(responseData);
+        
+        // 保存完整响应数据
+        const result = responseData;
+
+        // 保存所有修改的内容
+        Store.setState({
+          step1Result: parseResult.value.trim(), // 保存修改后的解析结果
+          step2Result: outlineResult.value.trim(), // 保存修改后的大纲
+          step3Result: companyResult.value.trim(), // 保存修改后的公司资料
+          step4Result: result, // 保存原始结果
+          step4UserReq: userReq.value.trim(),
+        });
+      } catch (err) {
+        UI.showError(err.message);
+      }
+    });
+
+    saveBtn.addEventListener('click', () => {
+      // 收集所有结果内容
+      const resultContent = collectResultContent();
+      
+      // 保存所有修改的内容
+      Store.setState({
+        step1Result: parseResult.value.trim(), // 保存修改后的解析结果
+        step2Result: outlineResult.value.trim(), // 保存修改后的大纲
+        step3Result: companyResult.value.trim(), // 保存修改后的公司资料
+        step4Result: resultContent, // 保存收集的结果内容
+        step4UserReq: userReq.value.trim(),
+      });
+      window.location.href = 'step5-compliance.html';
+    });
+
+    nextBtn.addEventListener('click', () => {
+      window.location.href = 'step5-compliance.html';
+    });
+  </script>
+</body>
+</html>
+

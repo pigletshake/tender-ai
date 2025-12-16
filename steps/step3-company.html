@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>步骤3 - 补充公司资料</title>
+  <link rel="stylesheet" href="../assets/css/shared.css">
+</head>
+<body>
+  <div class="container">
+    <a href="../index.html" class="text-blue-600 underline text-sm">返回主页</a>
+    <h1 class="text-2xl font-bold mb-4">步骤3：补充公司资料</h1>
+
+    <div class="card space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-2">上传公司资料</label>
+        <input type="file" id="fileInput" class="input" accept=".doc,.docx,.pdf,.txt,.md">
+        <p class="text-xs text-gray-500 mt-1">支持 Word、PDF、TXT、MD，≤50MB</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">用户需求（可选）</label>
+        <textarea id="userReq" class="input" rows="4" placeholder="请输入重点需求或补充说明"></textarea>
+      </div>
+
+      <div class="flex space-x-2">
+        <button id="runBtn" class="btn btn-primary">执行</button>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">公司资料结果（可编辑）</label>
+        <textarea id="resultArea" class="input" rows="14" placeholder="结果将显示在此"></textarea>
+      </div>
+      <div class="flex space-x-2">
+        <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
+        <button id="nextBtn" class="btn">直接下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/store.js"></script>
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/ui.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const userReq = document.getElementById('userReq');
+    const runBtn = document.getElementById('runBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const resultArea = document.getElementById('resultArea');
+
+    // 读取已有状态
+    const state = Store.getState();
+    if (state.step3Result) resultArea.value = Utils.getResultContent(state.step3Result);
+    if (state.step3UserReq) userReq.value = state.step3UserReq;
+
+    runBtn.addEventListener('click', async () => {
+      try {
+        if (!fileInput.files.length) {
+          UI.showError('请先选择公司资料文件');
+          return;
+        }
+        const file = fileInput.files[0];
+        if (file.size > 50 * 1024 * 1024) {
+          UI.showError('文件不能超过50MB');
+          return;
+        }
+        const apiKey = API.DIFY_CONFIG.apiKeys.step3;
+        const fileType = API.getFileType(file);
+        const fileCategory = API.getFileCategory(fileType);
+        const uploadId = await API.uploadFileToDify(file, fileType, apiKey);
+
+        const inputs = {};
+        const companyKey = API.DIFY_CONFIG.inputKeys.step3CompanyKey || 'company_files';
+        inputs[companyKey] = [{
+          transfer_method: 'local_file',
+          upload_file_id: uploadId,
+          type: fileCategory || 'document'
+        }];
+        if (userReq.value.trim()) {
+          inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
+        }
+
+        const result = await API.callDifyWorkflow(apiKey, inputs);
+        resultArea.value = Utils.getResultContent(result);
+
+        Store.setState({
+          step3Result: result,
+          step3UploadId: uploadId,
+          step3FileName: file.name,
+          step3UserReq: userReq.value.trim()
+        });
+      } catch (err) {
+        UI.showError(err.message);
+      }
+    });
+
+    saveBtn.addEventListener('click', () => {
+      Store.setState({
+        step3Result: resultArea.value,
+        step3UserReq: userReq.value.trim()
+      });
+      window.location.href = 'step4-write.html';
+    });
+
+    nextBtn.addEventListener('click', () => {
+      window.location.href = 'step4-write.html';
+    });
+  </script>
+</body>
+</html>
+

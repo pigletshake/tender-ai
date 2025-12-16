@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>步骤2 - 生成标书大纲</title>
+  <link rel="stylesheet" href="../assets/css/shared.css">
+</head>
+<body>
+  <div class="container">
+    <a href="../index.html" class="text-blue-600 underline text-sm">返回主页</a>
+    <h1 class="text-2xl font-bold mb-4">步骤2：生成标书大纲</h1>
+
+    <div class="card space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-2">上一步结果</label>
+        <textarea id="prevInput" class="input" rows="6" placeholder="来自步骤1的解析结果"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">用户说明</label>
+        <textarea id="content1" class="input" rows="4" placeholder="请输入用户需求"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">标书类型</label>
+        <select id="tenderType" class="input">
+          <option value="technical">技术标</option>
+          <option value="business">商务标</option>
+          <option value="combined">技术+商务</option>
+          <option value="service">服务类</option>
+          <option value="equipment">设备采购</option>
+          <option value="construction">工程施工</option>
+        </select>
+      </div>
+
+      <div class="flex space-x-2">
+        <button id="runBtn" class="btn btn-primary">执行</button>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">大纲结果（可编辑）</label>
+        <textarea id="resultArea" class="input" rows="14" placeholder="结果将显示在此"></textarea>
+      </div>
+      <div class="flex space-x-2">
+        <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
+        <button id="nextBtn" class="btn">直接下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/store.js"></script>
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/ui.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script>
+    const prevInput = document.getElementById('prevInput');
+    const content1 = document.getElementById('content1');
+    const tenderType = document.getElementById('tenderType');
+    const runBtn = document.getElementById('runBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const resultArea = document.getElementById('resultArea');
+
+    // 读取状态
+    const state = Store.getState();
+    if (state.step1Result) prevInput.value = Utils.getResultContent(state.step1Result);
+    if (state.step2Content1) content1.value = state.step2Content1;
+    if (state.step2TenderType) tenderType.value = state.step2TenderType;
+    if (state.step2Result) resultArea.value = Utils.getResultContent(state.step2Result);
+
+    runBtn.addEventListener('click', async () => {
+      try {
+        const apiKey = API.DIFY_CONFIG.apiKeys.step2;
+        if (!prevInput.value.trim()) {
+          UI.showError('请先填写上一步结果');
+          return;
+        }
+        const inputs = {
+          previous_result: prevInput.value.trim(),
+          content1: content1.value.trim(),
+          tender_type: tenderType.value
+        };
+        const result = await API.callDifyWorkflow(apiKey, inputs);
+        resultArea.value = Utils.getResultContent(result);
+        Store.setState({
+          step2Result: result,
+          step2Content1: content1.value.trim(),
+          step2TenderType: tenderType.value
+        });
+      } catch (err) {
+        UI.showError(err.message);
+      }
+    });
+
+    saveBtn.addEventListener('click', () => {
+      Store.setState({
+        step2Result: resultArea.value,
+        step2Content1: content1.value.trim(),
+        step2TenderType: tenderType.value
+      });
+      window.location.href = 'step3-company.html';
+    });
+
+    nextBtn.addEventListener('click', () => {
+      window.location.href = 'step3-company.html';
+    });
+  </script>
+</body>
+</html>
+
