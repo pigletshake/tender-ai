@@ -149,8 +149,40 @@
     // 读取已有状态
     const state = Store.getState();
     if (state.step1Result) {
-      resultArea.value = Utils.getResultContent(state.step1Result);
-      renderMarkdownPreview();
+      // step1Result 现在只缓存 outputs.text 字段（字符串）
+      let textContent = '';
+      if (typeof state.step1Result === 'string') {
+        // 如果是字符串，直接使用（可能是旧数据格式，尝试解析）
+        try {
+          const parsed = JSON.parse(state.step1Result);
+          // 如果是 JSON 对象，尝试提取 outputs.text
+          textContent = parsed?.data?.outputs?.text || parsed?.outputs?.text || state.step1Result;
+        } catch (e) {
+          // 不是 JSON，直接使用字符串
+          textContent = state.step1Result;
+        }
+      } else if (state.step1Result?.data?.outputs?.text) {
+        // 兼容旧格式：完整的响应对象
+        textContent = state.step1Result.data.outputs.text;
+      } else if (state.step1Result?.outputs?.text) {
+        // 兼容旧格式
+        textContent = state.step1Result.outputs.text;
+      } else {
+        textContent = String(state.step1Result || '');
+      }
+      
+      resultArea.value = textContent;
+      
+      // 直接渲染 Markdown 预览
+      if (textContent && marked) {
+        markdownPreview.innerHTML = marked.parse(textContent);
+      } else {
+        markdownPreview.textContent = textContent || '暂无内容';
+      }
+      
+      // 确保显示预览模式
+      previewMode.classList.remove('hidden');
+      editMode.classList.add('hidden');
     }
     if (state.step1UserReq) userReq.value = state.step1UserReq;
 
@@ -204,14 +236,47 @@
           inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
         }
 
-        const result = await API.callDifyWorkflow(apiKey, inputs);
-        resultArea.value = Utils.getResultContent(result);
+        // 直接调用 API 获取完整响应
+        const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs,
+            response_mode: 'blocking',
+            user: API.DIFY_CONFIG.user,
+          }),
+        });
         
-        // 更新预览
-        renderMarkdownPreview();
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData?.message || errorData?.data?.error || `API调用失败: ${response.status}`);
+        }
+        
+        const fullResponse = await response.json();
+        if (fullResponse?.data?.error) {
+          throw new Error(fullResponse.data.error);
+        }
+        
+        // 只提取 outputs.text 字段
+        const textContent = fullResponse?.data?.outputs?.text || '';
+        resultArea.value = textContent;
+        
+        // 直接渲染 Markdown 预览
+        if (textContent && marked) {
+          markdownPreview.innerHTML = marked.parse(textContent);
+        } else {
+          markdownPreview.textContent = textContent || '暂无内容';
+        }
+        
+        // 确保显示预览模式
+        previewMode.classList.remove('hidden');
+        editMode.classList.add('hidden');
 
         Store.setState({
-          step1Result: result,
+          step1Result: textContent, // 只缓存 outputs.text 字段
           step1UploadId: uploadId,
           step1FileName: file.name,
           step1UserReq: userReq.value.trim()

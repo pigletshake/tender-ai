@@ -77,6 +77,11 @@
       background-color: #f9fafb;
       font-weight: bold;
     }
+    .check-result-content {
+      background-color: #f9fafb;
+      padding: 1em;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -88,18 +93,27 @@
       <div>
         <label class="block text-sm font-medium mb-2">选择检查类型</label>
         <select id="checkType" class="input">
-          <option value="all">1. 检查全部</option>
-          <option value="completeness">2. 完整性检查（章节完整性、必备材料完整性）</option>
-          <option value="consistency">3. 一致性检查（金额一致性、工期一致性、人员配置一致性、文本逻辑一致性）</option>
-          <option value="qualification">4. 资质符合性检查（已满足项、缺失项/不符合项）</option>
-          <option value="risk">5. 风险条款检查（霸王条款识别、废标风险表达）</option>
-          <option value="language">6. 语言质量检查（错别字、病句/可读性）</option>
-        </select>
+          <option value="all">全部检查</option>
+         </select>
+        包含：章节内合规检查；全局合规检查
+        章节内合规检查，包含完整性检查completeness（章节完整性、必备材料完整性）；语言质量检查language（错别字、病句/可读性）；
+        风险条款检查risk（模糊承诺、偏离招标条件的措辞、容易被扣分的表述）；<br/>
+        全局合规检查，包含一致性检查consistency（金额一致性、工期一致性、人员配置一致性、文本逻辑一致性）；
       </div>
 
       <div id="prevInputContainer">
-        <label class="block text-sm font-medium mb-2">上一步结果（可编辑，默认取步骤4输出）</label>
-        <!-- 动态生成的文本框将插入这里 -->
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium"><h1 style="text-align: center;">标书分章节展示</h1></label>
+            </div>
+        <!-- 动态生成的章节将插入这里 -->
+      </div>
+
+      <!-- 全局检查结果显示区域 -->
+      <div id="globalCheckResultContainer" class="mt-4" style="display: none;">
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium"><h1 style="text-align: center;">全局检查结果</h1></label>
+        </div>
+        <div id="globalCheckResult" class="input p-4 bg-blue-50 border border-blue-200 rounded-lg" style="min-height: 300px; overflow-y: auto;"></div>
       </div>
 
       <div>
@@ -109,22 +123,11 @@
 
       <div class="flex space-x-2">
         <button id="selectAllBtn" class="btn btn-secondary">全选</button>
+        <button id="prevInputEditBtn" class="btn btn-secondary text-sm">编辑模式</button>
+      
         <button id="runBtn" class="btn btn-primary">执行检查</button>
-        <button id="exportBtn" class="btn btn-primary">没问题了，开始导出</button>
       </div>
 
-      <div id="resultContainer">
-        <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium">检查结果</label>
-          <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
-        </div>
-        <div id="previewMode">
-          <div id="markdownPreview" class="input p-4" style="min-height: 400px; overflow-y: auto;"></div>
-        </div>
-        <div id="editMode" class="hidden">
-          <!-- 动态生成的文本框将插入这里 -->
-        </div>
-      </div>
 
       <div class="flex space-x-2">
         <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
@@ -142,24 +145,25 @@
   <script>
     const checkType = document.getElementById('checkType');
     const prevInputContainer = document.getElementById('prevInputContainer');
+    const prevInputEditBtn = document.getElementById('prevInputEditBtn');
     const userReq = document.getElementById('userReq');
     const runBtn = document.getElementById('runBtn');
-    const editBtn = document.getElementById('editBtn');
     const selectAllBtn = document.getElementById('selectAllBtn');
-    const exportBtn = document.getElementById('exportBtn');
     const saveBtn = document.getElementById('saveBtn');
     const nextBtn = document.getElementById('nextBtn');
-    const resultContainer = document.getElementById('resultContainer');
-    const previewMode = document.getElementById('previewMode');
-    const editMode = document.getElementById('editMode');
-    const markdownPreview = document.getElementById('markdownPreview');
 
     let currentResultData = null; // 保存当前检查结果
 
-    // 渲染上一步结果（支持数组格式）
+    // 存储章节数据，用于预览/编辑模式切换
+    let chapterData = [];
+    let isPrevInputEditMode = false;
+    // 存储章节检查结果和全局检查结果
+    let chapterCheckResults = {}; // { chapterId: { content: "...", summary: "..." } }
+    let globalCheckResult = ''; // 全局检查结果（outputs.text）
+
+    // 渲染上一步结果（支持数组格式，每个章节支持预览/编辑模式）
     function renderPrevInput(result) {
-      prevInputContainer.innerHTML = '<label class="block text-sm font-medium mb-2">上一步结果（可编辑，默认取步骤4输出）</label>';
-      
+      // 保存原始数据
       try {
         let parsedResult = result;
         if (typeof result === 'string') {
@@ -167,312 +171,208 @@
             parsedResult = JSON.parse(result);
           } catch (e) {
             // 不是 JSON，当作普通文本处理
-            const textarea = document.createElement('textarea');
-            textarea.className = 'input';
-            textarea.rows = 8;
-            textarea.placeholder = '请输入标书内容或粘贴上一步输出';
-            textarea.value = result;
-            prevInputContainer.appendChild(textarea);
+            chapterData = [{ id: '0', title: '章节 1', content: result }];
+            renderChapters();
             return;
           }
         }
         
-        // 检查是否是包含 content 数组的结构
+        // 提取章节数据
         if (parsedResult && parsedResult.data && parsedResult.data.outputs && parsedResult.data.outputs.content && Array.isArray(parsedResult.data.outputs.content)) {
-          parsedResult.data.outputs.content.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
-            
-            const header = document.createElement('div');
-            header.className = 'flex items-center gap-3 mb-2';
-            
-            // 选择框
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'w-4 h-4 text-blue-600 rounded focus:ring-blue-500';
-            checkbox.checked = true;
-            checkbox.dataset.itemId = item.id || index;
-            
-            const number = document.createElement('span');
-            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold';
-            number.textContent = index + 1;
-            
-            const label = document.createElement('label');
-            label.className = 'text-sm font-medium flex-1';
-            label.textContent = item.title || `章节 ${index + 1}`;
-            
-            header.appendChild(checkbox);
-            header.appendChild(number);
-            header.appendChild(label);
-            
-            const textarea = document.createElement('textarea');
-            textarea.className = 'input';
-            textarea.rows = 8;
-            textarea.dataset.itemId = item.id || index;
-            textarea.value = item.content || '';
-            
-            div.appendChild(header);
-            div.appendChild(textarea);
-            prevInputContainer.appendChild(div);
-          });
+          chapterData = parsedResult.data.outputs.content.map((item, index) => ({
+            id: item.id || index.toString(),
+            title: item.title || `章节 ${index + 1}`,
+            content: item.content || ''
+          }));
         } else if (parsedResult && parsedResult.content && Array.isArray(parsedResult.content)) {
-          parsedResult.content.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
-            
-            const header = document.createElement('div');
-            header.className = 'flex items-center gap-3 mb-2';
-            
-            // 选择框
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'w-4 h-4 text-blue-600 rounded focus:ring-blue-500';
-            checkbox.checked = true;
-            checkbox.dataset.itemId = item.id || index;
-            
-            const number = document.createElement('span');
-            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold';
-            number.textContent = index + 1;
-            
-            const label = document.createElement('label');
-            label.className = 'text-sm font-medium flex-1';
-            label.textContent = item.title || `章节 ${index + 1}`;
-            
-            header.appendChild(checkbox);
-            header.appendChild(number);
-            header.appendChild(label);
-            
-            const textarea = document.createElement('textarea');
-            textarea.className = 'input';
-            textarea.rows = 8;
-            textarea.dataset.itemId = item.id || index;
-            textarea.value = item.content || '';
-            
-            div.appendChild(header);
-            div.appendChild(textarea);
-            prevInputContainer.appendChild(div);
-          });
+          chapterData = parsedResult.content.map((item, index) => ({
+            id: item.id || index.toString(),
+            title: item.title || `章节 ${index + 1}`,
+            content: item.content || ''
+          }));
         } else {
           // 单个结果
-          const textarea = document.createElement('textarea');
-          textarea.className = 'input';
-          textarea.rows = 8;
-          textarea.placeholder = '请输入标书内容或粘贴上一步输出';
-          textarea.value = Utils.getResultContent(result);
-          prevInputContainer.appendChild(textarea);
+          chapterData = [{ id: '0', title: '章节 1', content: Utils.getResultContent(result) }];
         }
       } catch (e) {
         console.error('渲染上一步结果失败:', e);
+        chapterData = [{ id: '0', title: '章节 1', content: Utils.getResultContent(result) }];
+      }
+      
+      renderChapters();
+    }
+
+    // 渲染章节（支持预览/编辑模式）
+    function renderChapters() {
+      // 清空容器（保留标题和编辑按钮）
+      const existingChapters = prevInputContainer.querySelectorAll('.chapter-item');
+      existingChapters.forEach(el => el.remove());
+      
+      chapterData.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'chapter-item mb-4 p-4 border border-gray-200 rounded-lg';
+        div.dataset.chapterId = item.id;
+        
+        const header = document.createElement('div');
+        header.className = 'flex items-center gap-3 mb-2';
+        
+        // 选择框
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'w-4 h-4 text-blue-600 rounded focus:ring-blue-500';
+        checkbox.checked = true;
+        checkbox.dataset.itemId = item.id;
+        
+        const number = document.createElement('span');
+        number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold';
+        number.textContent = index + 1;
+        
+        const label = document.createElement('label');
+        label.className = 'text-sm font-medium flex-1';
+        label.textContent = item.title;
+        
+        header.appendChild(checkbox);
+        header.appendChild(number);
+        header.appendChild(label);
+        
+        // 预览模式容器
+        const previewDiv = document.createElement('div');
+        previewDiv.className = 'chapter-preview input p-4';
+        previewDiv.style.minHeight = '150px';
+        previewDiv.style.overflowY = 'auto';
+        if (marked) {
+          previewDiv.innerHTML = marked.parse(item.content || '');
+        } else {
+          previewDiv.textContent = item.content || '';
+        }
+        
+        // 编辑模式容器
+        const editDiv = document.createElement('div');
+        editDiv.className = 'chapter-edit hidden';
         const textarea = document.createElement('textarea');
         textarea.className = 'input';
-        textarea.rows = 8;
-        textarea.placeholder = '请输入标书内容或粘贴上一步输出';
-        textarea.value = Utils.getResultContent(result);
-        prevInputContainer.appendChild(textarea);
-      }
-    }
-
-    // 渲染检查结果 Markdown 预览
-    function renderResultPreview(result) {
-      let markdown = '';
-      try {
-        let parsedResult = result || currentResultData;
-        if (!parsedResult) return;
-        if (typeof parsedResult === 'string') {
-          try {
-            parsedResult = JSON.parse(parsedResult);
-          } catch (e) {
-            if (marked) markdownPreview.innerHTML = marked.parse(parsedResult);
-            else markdownPreview.textContent = parsedResult;
-            return;
+        textarea.rows = 10;
+        textarea.dataset.itemId = item.id;
+        textarea.value = item.content || '';
+        editDiv.appendChild(textarea);
+        
+        // 章节检查结果显示区域（只显示检查摘要）
+        const checkResultDiv = document.createElement('div');
+        checkResultDiv.className = 'chapter-check-result mt-4 p-4 bg-gray-50 border border-gray-300 rounded-lg';
+        checkResultDiv.dataset.chapterId = item.id;
+        checkResultDiv.style.display = 'none'; // 默认隐藏，有检查结果时显示
+        
+        const checkResultTitle = document.createElement('div');
+        checkResultTitle.className = 'text-sm font-semibold text-gray-700 mb-2';
+        checkResultTitle.textContent = '';
+        checkResultDiv.appendChild(checkResultTitle);
+        
+        const checkResultContent = document.createElement('div');
+        checkResultContent.className = 'check-result-content text-sm text-gray-600';
+        checkResultDiv.appendChild(checkResultContent);
+        
+        div.appendChild(header);
+        div.appendChild(previewDiv);
+        div.appendChild(editDiv);
+        div.appendChild(checkResultDiv);
+        prevInputContainer.appendChild(div);
+        
+        // 如果有检查结果，只显示检查摘要（summary）
+        if (chapterCheckResults[item.id] && chapterCheckResults[item.id].summary) {
+          const result = chapterCheckResults[item.id];
+          if (marked) {
+            checkResultContent.innerHTML = marked.parse(result.summary);
+          } else {
+            checkResultContent.textContent = result.summary;
           }
+          checkResultDiv.style.display = 'block';
         }
-        let contentArray = null;
-        if (parsedResult?.data?.outputs?.content && Array.isArray(parsedResult.data.outputs.content)) {
-          contentArray = parsedResult.data.outputs.content;
-        } else if (parsedResult?.content && Array.isArray(parsedResult.content)) {
-          contentArray = parsedResult.content;
-        }
-        if (contentArray && contentArray.length > 0) {
-          contentArray.forEach((item, index) => {
-            markdown += `## ${item.title || `检查结果 ${index + 1}`}\n\n`;
-            markdown += item.content || '';
-            markdown += '\n\n';
-          });
-        } else {
-          markdown = Utils.getResultContent(parsedResult);
-        }
-        if (marked) markdownPreview.innerHTML = marked.parse(markdown);
-        else markdownPreview.textContent = markdown;
-      } catch (e) {
-        console.error('渲染检查结果预览失败:', e);
-        markdownPreview.textContent = Utils.getResultContent(result || currentResultData);
-      }
+      });
+      
+      // 根据当前模式显示/隐藏
+      updateChapterMode();
     }
 
-    // 渲染检查结果编辑模式
-    function renderResultEdit(result) {
-      editMode.innerHTML = '';
-      try {
-        let parsedResult = result || currentResultData;
-        if (!parsedResult) return;
-        if (typeof parsedResult === 'string') {
-          try {
-            parsedResult = JSON.parse(parsedResult);
-          } catch (e) {
-            const textarea = document.createElement('textarea');
-            textarea.className = 'input';
-            textarea.rows = 14;
-            textarea.placeholder = '结果将显示在此';
-            textarea.value = parsedResult;
-            editMode.appendChild(textarea);
-            return;
+    // 更新章节的预览/编辑模式
+    function updateChapterMode() {
+      const previews = prevInputContainer.querySelectorAll('.chapter-preview');
+      const edits = prevInputContainer.querySelectorAll('.chapter-edit');
+      
+      if (isPrevInputEditMode) {
+        previews.forEach(el => el.classList.add('hidden'));
+        edits.forEach(el => el.classList.remove('hidden'));
+        prevInputEditBtn.textContent = '预览模式';
+        // 编辑模式下，启用保存按钮
+        saveBtn.disabled = false;
+      } else {
+        previews.forEach(el => el.classList.remove('hidden'));
+        edits.forEach(el => el.classList.add('hidden'));
+        prevInputEditBtn.textContent = '编辑模式';
+        
+        // 更新预览内容
+        edits.forEach(editDiv => {
+          const textarea = editDiv.querySelector('textarea');
+          const chapterId = textarea.dataset.itemId;
+          const chapter = chapterData.find(c => c.id === chapterId);
+          if (chapter) {
+            chapter.content = textarea.value;
+            const previewDiv = editDiv.previousElementSibling;
+            if (previewDiv && previewDiv.classList.contains('chapter-preview')) {
+              if (marked) {
+                previewDiv.innerHTML = marked.parse(chapter.content || '');
+              } else {
+                previewDiv.textContent = chapter.content || '';
+              }
+            }
           }
-        }
-        let contentArray = null;
-        if (parsedResult?.data?.outputs?.content && Array.isArray(parsedResult.data.outputs.content)) {
-          contentArray = parsedResult.data.outputs.content;
-        } else if (parsedResult?.content && Array.isArray(parsedResult.content)) {
-          contentArray = parsedResult.content;
-        }
-        if (contentArray && contentArray.length > 0) {
-          contentArray.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
-            const header = document.createElement('div');
-            header.className = 'flex items-center gap-3 mb-2';
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'w-4 h-4 text-green-600 rounded focus:ring-green-500';
-            checkbox.checked = true;
-            checkbox.dataset.itemId = item.id || index;
-            const number = document.createElement('span');
-            number.className = 'flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-sm font-semibold';
-            number.textContent = index + 1;
-            const label = document.createElement('label');
-            label.className = 'text-sm font-medium flex-1';
-            label.textContent = item.title || `检查结果 ${index + 1}`;
-            header.appendChild(checkbox);
-            header.appendChild(number);
-            header.appendChild(label);
-            const textarea = document.createElement('textarea');
-            textarea.className = 'input';
-            textarea.rows = 10;
-            textarea.dataset.itemId = item.id || index;
-            textarea.value = item.content || '';
-            div.appendChild(header);
-            div.appendChild(textarea);
-            editMode.appendChild(div);
-          });
-        } else {
-          const textarea = document.createElement('textarea');
-          textarea.className = 'input';
-          textarea.rows = 14;
-          textarea.placeholder = '结果将显示在此';
-          textarea.value = Utils.getResultContent(parsedResult);
-          editMode.appendChild(textarea);
-        }
-      } catch (e) {
-        console.error('渲染检查结果编辑失败:', e);
-        const textarea = document.createElement('textarea');
-        textarea.className = 'input';
-        textarea.rows = 14;
-        textarea.placeholder = '结果将显示在此';
-        textarea.value = Utils.getResultContent(result || currentResultData);
-        editMode.appendChild(textarea);
+        });
+        // 预览模式下，禁用保存按钮
+        saveBtn.disabled = true;
       }
     }
 
-    // 统一渲染函数
-    function renderResult(result) {
-      currentResultData = result;
-      renderResultPreview(result);
-      renderResultEdit(result);
-      // 默认回到预览模式
-      editMode.classList.add('hidden');
-      previewMode.classList.remove('hidden');
-      editBtn.textContent = '编辑模式';
-      saveBtn.disabled = true;
-    }
 
     // 收集上一步结果内容（只收集被选中的）
-    // 返回：单个文本框时返回字符串，多个文本框时返回数组
+    // 返回：始终返回数组的 JSON 字符串，格式为 [{ "id": "...", "title": "...", "content": "..." }]
     function collectPrevInput() {
-      const textareas = prevInputContainer.querySelectorAll('textarea');
-      if (textareas.length === 0) return '';
+      // 无论是否在编辑模式，都从 textarea 获取最新内容（如果 textarea 存在）
+      const textareas = prevInputContainer.querySelectorAll('.chapter-edit textarea');
+      textareas.forEach(textarea => {
+        const chapterId = textarea.dataset.itemId;
+        const chapter = chapterData.find(c => c.id === chapterId);
+        if (chapter) {
+          chapter.content = textarea.value;
+        }
+      });
       
-      if (textareas.length === 1) {
-        // 单个文本框：返回字符串
-        return textareas[0].value;
-      } else {
-        // 多个文本框：构建数组结构，只收集被选中的
-        const contentArray = [];
-        Array.from(textareas).forEach(textarea => {
-          const parentDiv = textarea.closest('div');
-          const checkbox = parentDiv?.querySelector('input[type="checkbox"]');
-          
-          // 只收集被选中的内容
-          if (!checkbox || checkbox.checked) {
-            const header = parentDiv?.querySelector('.flex.items-center');
-            const label = header?.querySelector('label');
-            contentArray.push({
-              id: textarea.dataset.itemId || '',
-              title: label?.textContent || '',
-              content: textarea.value
-            });
-          }
-        });
+      if (chapterData.length === 0) return '';
+      
+      // 构建结果数组，只收集被选中的章节
+      const resultArray = [];
+      chapterData.forEach((item, index) => {
+        const chapterDiv = prevInputContainer.querySelector(`[data-chapter-id="${item.id}"]`);
+        const checkbox = chapterDiv?.querySelector('input[type="checkbox"]');
         
-        // 返回数组对象，而不是 JSON 字符串
-        return contentArray;
-      }
+        // 只收集被选中的内容
+        if (!checkbox || checkbox.checked) {
+          resultArray.push({
+            id: item.id,
+            title: item.title,
+            content: item.content
+          });
+        }
+      });
+      
+      // 直接返回数组的 JSON 字符串
+      return JSON.stringify(resultArray);
     }
 
-    // 收集检查结果内容（只收集被选中的）
-    function collectResult() {
-      const textareas = editMode.querySelectorAll('textarea');
-      if (textareas.length === 0) return '';
-      
-      if (textareas.length === 1) {
-        return textareas[0].value;
-      } else {
-        const contentArray = [];
-        Array.from(textareas).forEach(textarea => {
-          const parentDiv = textarea.closest('div');
-          const checkbox = parentDiv?.querySelector('input[type="checkbox"]');
-          
-          // 只收集被选中的内容
-          if (!checkbox || checkbox.checked) {
-            const header = parentDiv?.querySelector('.flex.items-center');
-            const label = header?.querySelector('label');
-            contentArray.push({
-              id: textarea.dataset.itemId || '',
-              title: label?.textContent || '',
-              content: textarea.value
-            });
-          }
-        });
-        
-        const state = Store.getState();
-        if (state.step5Result) {
-          try {
-            const original = typeof state.step5Result === 'string' ? JSON.parse(state.step5Result) : state.step5Result;
-            if (original && original.data && original.data.outputs) {
-              original.data.outputs.content = contentArray;
-              return JSON.stringify(original);
-            }
-          } catch (e) {}
-        }
-        
-        return JSON.stringify({
-          data: {
-            outputs: {
-              content: contentArray
-            }
-          }
-        });
-      }
-    }
+
+    // 章节编辑按钮事件
+    prevInputEditBtn.addEventListener('click', () => {
+      isPrevInputEditMode = !isPrevInputEditMode;
+      updateChapterMode();
+    });
 
     // 读取状态
     const state = Store.getState();
@@ -481,62 +381,45 @@
     }
     if (state.step5CheckType) checkType.value = state.step5CheckType;
     if (state.step5UserReq) userReq.value = state.step5UserReq;
-    if (state.step5Result) {
-      renderResult(state.step5Result);
+    
+    // 从缓存中恢复检查结果
+    if (state.step5ChapterCheckResults) {
+      chapterCheckResults = state.step5ChapterCheckResults;
+      // 重新渲染章节以显示检查结果
+      renderChapters();
     }
+    if (state.step5GlobalCheckResult) {
+      globalCheckResult = state.step5GlobalCheckResult;
+      // 显示全局检查结果
+      const globalContainer = document.getElementById('globalCheckResultContainer');
+      const globalResultDiv = document.getElementById('globalCheckResult');
+      if (globalContainer && globalResultDiv) {
+        if (marked) {
+          globalResultDiv.innerHTML = marked.parse(globalCheckResult);
+        } else {
+          globalResultDiv.textContent = globalCheckResult;
+        }
+        globalContainer.style.display = 'block';
+      }
+    }
+    
     // 默认预览模式，保存按钮禁用
     saveBtn.disabled = true;
-
-    // 编辑模式切换
-    editBtn.addEventListener('click', () => {
-      if (editMode.classList.contains('hidden')) {
-        editMode.classList.remove('hidden');
-        previewMode.classList.add('hidden');
-        editBtn.textContent = '预览模式';
-        saveBtn.disabled = false;
-      } else {
-        const resultContent = collectResult();
-        if (resultContent) {
-          try {
-            const parsed = typeof resultContent === 'string' ? JSON.parse(resultContent) : resultContent;
-            currentResultData = parsed;
-            renderResultPreview(parsed);
-          } catch (e) {
-            currentResultData = resultContent;
-            renderResultPreview(resultContent);
-          }
-        }
-        editMode.classList.add('hidden');
-        previewMode.classList.remove('hidden');
-        editBtn.textContent = '编辑模式';
-        saveBtn.disabled = true;
-      }
-    });
 
     runBtn.addEventListener('click', async () => {
       try {
         const apiKey = API.DIFY_CONFIG.apiKeys.step5;
         const prevInputContent = collectPrevInput();
         
-        // 验证输入：字符串需要非空，数组需要至少一个元素
-        if (typeof prevInputContent === 'string') {
-          if (!prevInputContent.trim()) {
-            UI.showError('请先填写上一步结果（步骤4输出）');
-            return;
-          }
-        } else if (Array.isArray(prevInputContent)) {
-          if (prevInputContent.length === 0) {
-            UI.showError('请先填写上一步结果（步骤4输出）');
-            return;
-          }
-        } else {
+        // 验证输入：必须是字符串且非空
+        if (typeof prevInputContent !== 'string' || !prevInputContent.trim()) {
           UI.showError('请先填写上一步结果（步骤4输出）');
           return;
         }
         
         const inputs = {
           check_type: checkType.value,
-          previous_result: prevInputContent, // 可以是字符串或数组
+          previous_result: prevInputContent, // 始终是字符串类型
         };
         if (userReq.value.trim()) {
           inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
@@ -566,8 +449,85 @@
           throw new Error(responseData.data.error);
         }
         
-        // 渲染结果（支持数组格式）
-        renderResult(responseData);
+        // 接口返回的结果处理
+        // 1. 提取 outputs.output 数组中的章节检查结果
+        // 2. 提取 outputs.text 作为全局检查结果
+        try {
+          // 提取章节检查结果（outputs.output）
+          if (responseData?.data?.outputs?.output && Array.isArray(responseData.data.outputs.output)) {
+            // 清空之前的检查结果
+            chapterCheckResults = {};
+            
+            // 将检查结果按 id 匹配到对应章节
+            responseData.data.outputs.output.forEach((item) => {
+              if (item.id) {
+                chapterCheckResults[item.id] = {
+                  content: item.content || '',
+                  summary: item.summary || ''
+                };
+              }
+            });
+            
+            // 保存到缓存
+            Store.setState({
+              step5ChapterCheckResults: chapterCheckResults
+            });
+          }
+          
+          // 提取全局检查结果（outputs.text）
+          if (responseData?.data?.outputs?.text) {
+            globalCheckResult = responseData.data.outputs.text;
+          } else if (responseData?.data?.outputs?.content && typeof responseData.data.outputs.content === 'string') {
+            globalCheckResult = responseData.data.outputs.content;
+          }
+          
+          // 保存全局检查结果到缓存
+          if (globalCheckResult) {
+            Store.setState({
+              step5GlobalCheckResult: globalCheckResult
+            });
+          }
+          
+          // 重新渲染章节，显示检查结果
+          renderChapters();
+          
+          // 显示全局检查结果
+          if (globalCheckResult) {
+            const globalContainer = document.getElementById('globalCheckResultContainer');
+            const globalResultDiv = document.getElementById('globalCheckResult');
+            if (globalContainer && globalResultDiv) {
+              if (marked) {
+                globalResultDiv.innerHTML = marked.parse(globalCheckResult);
+              } else {
+                globalResultDiv.textContent = globalCheckResult;
+              }
+              globalContainer.style.display = 'block';
+            }
+          }
+          
+          // 如果接口返回了章节内容更新，也处理一下（保持原有逻辑）
+          let updatedChapters = [];
+          if (responseData?.data?.outputs?.content && Array.isArray(responseData.data.outputs.content)) {
+            updatedChapters = responseData.data.outputs.content;
+          } else if (responseData?.content && Array.isArray(responseData.content)) {
+            updatedChapters = responseData.content;
+          }
+          
+          // 如果有章节内容更新，覆盖章节内容
+          if (updatedChapters.length > 0 && updatedChapters.length === chapterData.length) {
+            chapterData = chapterData.map((originalChapter, index) => {
+              const updatedChapter = updatedChapters[index];
+              return {
+                ...originalChapter,
+                content: updatedChapter.content || updatedChapter.text || originalChapter.content
+              };
+            });
+            renderChapters();
+          }
+        } catch (e) {
+          console.error('处理检查结果失败:', e);
+          UI.showError('处理检查结果失败: ' + e.message);
+        }
         
         // 保存完整响应数据
         const result = responseData;
@@ -584,11 +544,8 @@
     // 全选/取消全选功能
     let isAllSelected = true;
     selectAllBtn.addEventListener('click', () => {
-      // 获取所有 checkbox（包括上一步结果和检查结果）
-      const allCheckboxes = [
-        ...prevInputContainer.querySelectorAll('input[type="checkbox"]'),
-        ...resultContainer.querySelectorAll('input[type="checkbox"]')
-      ];
+      // 获取所有 checkbox（章节选择框）
+      const allCheckboxes = prevInputContainer.querySelectorAll('input[type="checkbox"]');
       
       if (allCheckboxes.length === 0) return;
       
@@ -674,32 +631,9 @@
       return markdown;
     }
 
-    // "没问题了，开始导出"按钮
-    exportBtn.addEventListener('click', () => {
-      // 先保存当前步骤的结果
-      const resultContent = collectResult();
-      Store.setState({
-        step5Result: resultContent,
-        step5CheckType: checkType.value,
-        step5UserReq: userReq.value.trim(),
-      });
-      
-      // 收集所有内容并合并为 Markdown
-      const mergedContent = collectAllContentAsMarkdown();
-      
-      // 保存合并后的内容
-      Store.setState({
-        step6Result: mergedContent
-      });
-      
-      // 跳转到步骤6
-      window.location.href = 'step6-merge.html';
-    });
-
     saveBtn.addEventListener('click', () => {
-      const resultContent = collectResult();
+      // 保存当前状态
       Store.setState({
-        step5Result: resultContent,
         step5CheckType: checkType.value,
         step5UserReq: userReq.value.trim(),
       });

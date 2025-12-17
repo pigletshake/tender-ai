@@ -77,6 +77,9 @@
       background-color: #f9fafb;
       font-weight: bold;
     }
+    .items-center {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
@@ -88,7 +91,7 @@
       <!-- 第一步：显示上一步的结果（可编辑） -->
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium">上一步结果</label>
+          <label class="block text-sm font-medium"><h1 style="text-align: center;">标书正式内容</h1></label>
         </div>
         <div id="previewMode">
           <div id="markdownPreview" class="input p-4" style="min-height: 300px; overflow-y: auto;"></div>
@@ -99,24 +102,17 @@
       </div>
       
       <div class="flex space-x-2">
-        <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
-        <button id="saveBtn" class="btn btn-secondary" disabled>保存</button>
+        <button id="editBtn" class="btn btn-secondary text-sm" style="margin-top: 20px;">编辑模式</button>
+        <button id="saveBtn" class="btn btn-secondary" disabled style="margin-top: 20px;">保存</button>
       </div>
 
       <!-- 导出按钮 -->
-      <div class="flex space-x-2">
-        <button id="exportBtn" class="btn btn-primary">导出Word</button>
+      <div class="flex space-x-2" style="text-align: center;">
+        <button id="exportBtn" class="btn btn-primary" style="margin-top: 20px;">导出Word</button>
       </div>
 
       <!-- 导出结果显示区域 -->
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium">导出结果</label>
-        </div>
-        <div id="exportResult" class="input p-4" style="min-height: 100px; background-color: #f9fafb;">
-          <p class="text-gray-500 text-sm">点击上方"导出Word"按钮后，下载链接将显示在此处</p>
-        </div>
-      </div>
+   
     </div>
   </div>
 
@@ -140,47 +136,46 @@
     const markdownPreview = document.getElementById('markdownPreview');
     const exportResult = document.getElementById('exportResult');
 
-    // 读取状态，默认显示 step5 的结果
+    // 读取状态，使用 step4 的标书分章节内容
     const state = Store.getState();
     let currentContent = '';
     
-    if (state.step5Result) {
+    if (state.step4Result) {
       // 处理 Dify API 返回的完整结构
-      let step5Data = state.step5Result;
-      if (typeof step5Data === 'string') {
+      let step4Data = state.step4Result;
+      if (typeof step4Data === 'string') {
         try {
-          step5Data = JSON.parse(step5Data);
+          step4Data = JSON.parse(step4Data);
         } catch (e) {
           // 如果不是 JSON，直接使用字符串
-          currentContent = step5Data;
+          currentContent = step4Data;
         }
       }
       
-      // 提取内容：优先从 data.outputs.text 或 data.outputs.content 获取
-      if (step5Data && typeof step5Data === 'object') {
-        if (step5Data.data && step5Data.data.outputs) {
-          if (step5Data.data.outputs.text) {
-            currentContent = step5Data.data.outputs.text;
-          } else if (step5Data.data.outputs.content) {
-            // 如果是数组，转换为字符串
-            if (Array.isArray(step5Data.data.outputs.content)) {
-              currentContent = step5Data.data.outputs.content.map(item => {
-                if (typeof item === 'string') return item;
-                if (item.content) return item.content;
-                return JSON.stringify(item);
-              }).join('\n\n');
-            } else {
-              currentContent = step5Data.data.outputs.content;
-            }
-          }
+      // 提取内容：优先从 data.outputs.content 获取（数组格式）
+      if (step4Data && typeof step4Data === 'object') {
+        if (step4Data.data && step4Data.data.outputs && step4Data.data.outputs.content && Array.isArray(step4Data.data.outputs.content)) {
+          // 将分章节内容组合成 Markdown 格式
+          currentContent = step4Data.data.outputs.content.map(item => {
+            const title = item.title || '未命名章节';
+            const content = item.content || '';
+            return `## ${title}\n\n${content}`;
+          }).join('\n\n');
+        } else if (step4Data.content && Array.isArray(step4Data.content)) {
+          // 兼容其他格式
+          currentContent = step4Data.content.map(item => {
+            const title = item.title || '未命名章节';
+            const content = item.content || '';
+            return `## ${title}\n\n${content}`;
+          }).join('\n\n');
+        } else if (step4Data.data && step4Data.data.outputs && step4Data.data.outputs.text) {
+          currentContent = step4Data.data.outputs.text;
+        } else {
+          // 如果还没有提取到内容，使用 Utils.getResultContent 作为后备
+          currentContent = Utils.getResultContent(step4Data);
         }
-        
-        // 如果还没有提取到内容，使用 Utils.getResultContent 作为后备
-        if (!currentContent) {
-          currentContent = Utils.getResultContent(step5Data);
-        }
-      } else if (typeof step5Data === 'string') {
-        currentContent = step5Data;
+      } else if (typeof step4Data === 'string') {
+        currentContent = step4Data;
       }
       
       // 设置到 textarea
@@ -188,8 +183,8 @@
         resultArea.value = currentContent;
       }
     } else {
-      // 如果没有 step5Result，显示提示
-      currentContent = '请先完成步骤5：合规检查';
+      // 如果没有 step4Result，显示提示
+      currentContent = '请先完成步骤4：写标书';
       resultArea.value = currentContent;
     }
     
@@ -321,11 +316,11 @@
     // 导出按钮
     exportBtn.addEventListener('click', async () => {
       try {
-        // 获取当前显示的内容（step5 的结果）
+        // 获取当前显示的内容（step4 的标书内容）
         const markdown = resultArea.value.trim() || currentContent;
         
-        if (!markdown || markdown === '请先完成步骤5：合规检查') {
-          UI.showError('请先完成步骤5：合规检查');
+        if (!markdown || markdown === '请先完成步骤4：写标书') {
+          UI.showError('请先完成步骤4：写标书');
           return;
         }
         
@@ -338,11 +333,40 @@
 
     // 保存按钮
     saveBtn.addEventListener('click', () => {
-      // 保存当前编辑的 step5 结果
-      Store.setState({
-        step5Result: resultArea.value
-      });
-      currentContent = resultArea.value;
+      // 保存当前编辑的标书内容到 step4Result
+      // 需要将 Markdown 文本转换回数组格式保存
+      const markdown = resultArea.value.trim();
+      if (!markdown) {
+        alert('内容为空，无法保存');
+        return;
+      }
+      
+      // 尝试解析为章节数组格式
+      const state = Store.getState();
+      let step4Data = state.step4Result;
+      if (typeof step4Data === 'string') {
+        try {
+          step4Data = JSON.parse(step4Data);
+        } catch (e) {
+          step4Data = null;
+        }
+      }
+      
+      // 如果原数据是数组格式，尝试保持结构
+      if (step4Data && step4Data.data && step4Data.data.outputs && step4Data.data.outputs.content && Array.isArray(step4Data.data.outputs.content)) {
+        // 简单处理：将整个 Markdown 作为第一个章节的内容，或保持原结构
+        // 这里为了简化，直接保存为字符串格式
+        Store.setState({
+          step4Result: markdown
+        });
+      } else {
+        // 直接保存为字符串
+        Store.setState({
+          step4Result: markdown
+        });
+      }
+      
+      currentContent = markdown;
       alert('已保存到本地');
     });
   </script>
