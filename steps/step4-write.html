@@ -132,6 +132,7 @@
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/ui.js"></script>
   <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/batchSubmit.js"></script>
   <!-- Markdown 渲染库 -->
   <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
   <script>
@@ -456,44 +457,55 @@
         if (!companyResult.value.trim()) {
           if (!confirm('未读取到公司资料，继续执行？')) return;
         }
+        
         const apiKey = API.DIFY_CONFIG.apiKeys.step4;
-        const inputs = {
-          outline_content: outlineResult.value.trim(),
-          company_data: companyResult.value.trim(),
-        };
-        if (parseResult.value.trim()) {
-          inputs.previous_result = parseResult.value.trim();
+        
+        // 禁用提交按钮，显示进度
+        runBtn.disabled = true;
+        runBtn.textContent = '提交中...';
+        
+        // 检查是否有未完成的批次
+        const progressKey = BatchSubmit.getBatchProgressKey(
+          outlineResult.value.trim(),
+          parseResult.value.trim(),
+          companyResult.value.trim(),
+          userReq.value.trim()
+        );
+        const progress = BatchSubmit.getBatchProgress(progressKey);
+        const hasUnfinishedProgress = progress && progress.completedBatches && progress.completedBatches.length > 0;
+        
+        // 如果有未完成的批次，询问是否继续
+        let shouldResume = true;
+        if (hasUnfinishedProgress) {
+          const completed = progress.completedBatches.length;
+          const total = progress.totalBatches;
+          shouldResume = confirm(`检测到未完成的批次（已完成 ${completed}/${total}），是否从第 ${completed + 1} 个批次继续提交？\n\n点击"确定"继续，点击"取消"重新开始。`);
         }
-        if (userReq.value.trim()) {
-          inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
-        }
-
-        // 调用 API 获取完整响应
-        const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
+        
+        // 使用分批提交（支持断点续传）
+        const mergedResult = await BatchSubmit.batchSubmitTender({
+          outline: outlineResult.value.trim(),
+          parseResult: parseResult.value.trim(),
+          companyResult: companyResult.value.trim(),
+          userReq: userReq.value.trim(),
+          apiKey: apiKey,
+          resume: shouldResume,
+          onProgress: (current, total, batchTitle) => {
+            // 更新按钮文本显示进度
+            runBtn.textContent = `提交中... (${current}/${total}) ${batchTitle}`;
           },
-          body: JSON.stringify({
-            inputs,
-            response_mode: 'blocking',
-            user: API.DIFY_CONFIG.user,
-          }),
+          onError: (error) => {
+            console.error('分批提交错误:', error);
+            // 出错时不清除进度，以便下次继续
+          }
         });
         
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData?.message || errorData?.data?.error || `API调用失败: ${response.status}`);
-        }
+        // 恢复按钮状态
+        runBtn.disabled = false;
+        runBtn.textContent = '提交';
         
-        const responseData = await response.json();
-        if (responseData?.data?.error) {
-          throw new Error(responseData.data.error);
-        }
-        
-        // 使用完整响应数据渲染结果
-        renderResult(responseData);
+        // 使用合并后的响应数据渲染结果
+        renderResult(mergedResult);
         
         // 执行后切换到预览模式
         editMode.classList.add('hidden');
@@ -502,17 +514,20 @@
         saveBtn.disabled = true;
         
         // 保存完整响应数据
-        const result = responseData;
+        const result = mergedResult;
 
         // 保存所有修改的内容
         Store.setState({
           step1Result: parseResult.value.trim(), // 保存修改后的解析结果
           step2Result: outlineResult.value.trim(), // 保存修改后的大纲
           step3Result: companyResult.value.trim(), // 保存修改后的公司资料
-          step4Result: result, // 保存原始结果
+          step4Result: result, // 保存合并后的结果
           step4UserReq: userReq.value.trim(),
         });
       } catch (err) {
+        // 恢复按钮状态
+        runBtn.disabled = false;
+        runBtn.textContent = '提交';
         UI.showError(err.message);
       }
     });
