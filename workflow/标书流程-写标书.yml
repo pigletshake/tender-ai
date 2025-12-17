@@ -545,7 +545,7 @@ workflow:
           result:
             children: null
             type: array[object]
-        selected: true
+        selected: false
         title: 章节变量
         type: code
         variables:
@@ -561,7 +561,7 @@ workflow:
       positionAbsolute:
         x: 491.51418302871184
         y: 282
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -580,7 +580,7 @@ workflow:
           records:
             children: null
             type: array[object]
-        selected: false
+        selected: true
         title: 合并数据
         type: code
         variables:
@@ -605,13 +605,13 @@ workflow:
       positionAbsolute:
         x: 705.2969691057798
         y: 703.0770964256795
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 244
       zIndex: 1002
     viewport:
-      x: 156.1336596499267
-      y: -107.56743822438148
+      x: -10.866340350073301
+      y: -132.56743822438142
       zoom: 0.8217899760770201

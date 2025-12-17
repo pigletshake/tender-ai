@@ -5,7 +5,11 @@ app:
   mode: workflow
   name: 标书流程-合规检查
   use_icon_as_answer_icon: false
-dependencies: []
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.0.26@4f1c4ded3d189719b7dd54e9d4e5b26f724f3632f3dfaa299491b42accc112c8
 kind: app
 version: 0.3.0
 workflow:
@@ -59,55 +63,744 @@ workflow:
     - data:
         isInIteration: false
         isInLoop: false
+        sourceType: code
+        targetType: iteration
+      id: 1765936022214-source-1765937094673-target
+      selected: false
+      source: '1765936022214'
+      sourceHandle: source
+      target: '1765937094673'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765937094673'
+        sourceType: iteration-start
+        targetType: code
+      id: 1765937094673start-source-1765937126041-target
+      selected: false
+      source: 1765937094673start
+      sourceHandle: source
+      target: '1765937126041'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765937094673'
+        sourceType: code
+        targetType: llm
+      id: 1765937126041-source-1765938026139-target
+      selected: false
+      source: '1765937126041'
+      sourceHandle: source
+      target: '1765938026139'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInLoop: false
         sourceType: start
-        targetType: end
-      id: 1765874087627-source-1765874738422-target
+        targetType: code
+      id: 1765874087627-source-1765936022214-target
+      selected: false
       source: '1765874087627'
       sourceHandle: source
-      target: '1765874738422'
+      target: '1765936022214'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765937094673'
+        sourceType: llm
+        targetType: code
+      id: 1765938026139-source-1765939215971-target
+      selected: false
+      source: '1765938026139'
+      sourceHandle: source
+      target: '1765939215971'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: iteration
+        targetType: code
+      id: 1765937094673-source-1765951058931-target
+      selected: false
+      source: '1765937094673'
+      sourceHandle: source
+      target: '1765951058931'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: llm
+      id: 1765951058931-source-1765950233800-target
+      selected: false
+      source: '1765951058931'
+      sourceHandle: source
+      target: '1765950233800'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: end
+      id: 1765950233800-source-1765952053521-target
+      source: '1765950233800'
+      sourceHandle: source
+      target: '1765952053521'
       targetHandle: target
       type: custom
       zIndex: 0
     nodes:
     - data:
         desc: ''
-        selected: true
+        selected: false
         title: 开始
         type: start
-        variables: []
-      height: 54
+        variables:
+        - label: 检查内容
+          max_length: 5000000
+          options: []
+          required: true
+          type: paragraph
+          variable: previous_result
+        - label: 合规类型
+          max_length: 50
+          options: []
+          required: false
+          type: text-input
+          variable: check_type
+      height: 116
       id: '1765874087627'
       position:
-        x: 80
-        y: 282
+        x: 222
+        y: 186
       positionAbsolute:
-        x: 80
-        y: 282
-      selected: true
+        x: 222
+        y: 186
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: "import json\n\ndef main(arg1: str, arg2: str) -> dict:\n    # 1. 反序列化\
+          \ JSON\n    try:\n        data_list = json.loads(arg1)\n    except Exception\
+          \ as e:\n        return {\n            \"error\": f\"arg1 不是合法 JSON 字符串:\
+          \ {str(e)}\"\n        }\n\n    # 2. 确保是数组\n    if not isinstance(data_list,\
+          \ list):\n        return {\n            \"error\": \"arg1 解析后不是 list\"\n\
+          \        }\n\n    # 3. check_type 描述词映射\n    type_desc_map = {\n       \
+          \ \"all\": \"对标书进行全面合规检查，覆盖完整性、一致性、资质、风险与语言质量等所有维度。\",\n        \"completeness\"\
+          : \"检查标书内容与结构的完整性，确认是否包含招标文件要求的全部章节、条款、材料及必要附件。\",\n        \"consistency\"\
+          : \"检查标书内部及与招标文件之间的一致性，识别前后矛盾、参数不统一或表述冲突的问题。\",\n        \"qualification\"\
+          : \"检查投标主体及相关材料的资质合规性，确认企业资质、业绩、人员资格是否满足招标要求。\",\n        \"risk\": \"识别可能导致废标、扣分或法律、商务风险的潜在问题，包括偏离条款和不利表述。\"\
+          ,\n        \"language\": \"检查标书语言与表达质量，包括错别字、病句、歧义表述及专业性不足的问题。\"\n    }\n\
+          \n    # 4. 获取当前 type 描述\n    type_desc = type_desc_map.get(\n        arg2,\n\
+          \        \"未定义的检查类型，请根据上下文自行判断合规检查重点。\"\n    )\n    # 6. 返回给后续迭代节点\n   \
+          \ return {\n        \"result\": data_list,\n        \"type_desc\": type_desc\n\
+          \    }"
+        code_language: python3
+        desc: ''
+        outputs:
+          result:
+            children: null
+            type: array[object]
+          type_desc:
+            children: null
+            type: string
+        selected: false
+        title: （输入）数据解析
+        type: code
+        variables:
+        - value_selector:
+          - '1765874087627'
+          - previous_result
+          variable: arg1
+        - value_selector:
+          - '1765874087627'
+          - check_type
+          variable: arg2
+      height: 54
+      id: '1765936022214'
+      position:
+        x: 598.4465702434014
+        y: 186
+      positionAbsolute:
+        x: 598.4465702434014
+        y: 186
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 244
     - data:
         desc: ''
-        outputs: []
+        error_handle_mode: terminated
+        height: 178
+        is_parallel: false
+        iterator_selector:
+        - '1765936022214'
+        - result
+        output_selector:
+        - '1765939215971'
+        - records
+        output_type: array[object]
+        parallel_nums: 10
         selected: false
-        title: 结束
-        type: end
-      height: 54
-      id: '1765874738422'
+        start_node_id: 1765937094673start
+        title: 迭代：章节内合规检查
+        type: iteration
+        width: 996
+      height: 178
+      id: '1765937094673'
       position:
-        x: 384
-        y: 282
+        x: 240.55342975659846
+        y: 446
       positionAbsolute:
-        x: 384
-        y: 282
+        x: 240.55342975659846
+        y: 446
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 996
+      zIndex: 1
+    - data:
+        desc: ''
+        isInIteration: true
+        selected: false
+        title: ''
+        type: iteration-start
+      draggable: false
+      height: 48
+      id: 1765937094673start
+      parentId: '1765937094673'
+      position:
+        x: 24
+        y: 68
+      positionAbsolute:
+        x: 264.55342975659846
+        y: 514
+      selectable: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-iteration-start
+      width: 44
+      zIndex: 1002
+    - data:
+        code: "import json\ndef main(arg1: dict) -> dict:\n    # 做内容优化或清理，json.loads(arg1)\n\
+          \    data = arg1\n    id =  data.get(\"id\", \"\")\n    title = data.get(\"\
+          title\", \"\")\n    content = data.get(\"content\", \"\")\n    return {\n\
+          \        \"id\": id,\n        \"title\": title,\n        \"content\":content\n\
+          \    }\n"
+        code_language: python3
+        desc: ''
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765937094673'
+        outputs:
+          content:
+            children: null
+            type: string
+          id:
+            children: null
+            type: string
+          title:
+            children: null
+            type: string
+        selected: false
+        title: 解析变量
+        type: code
+        variables:
+        - value_selector:
+          - '1765937094673'
+          - item
+          variable: arg1
+      height: 54
+      id: '1765937126041'
+      parentId: '1765937094673'
+      position:
+        x: 128
+        y: 68
+      positionAbsolute:
+        x: 368.55342975659846
+        y: 514
       selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 244
+      zIndex: 1002
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1765937126041'
+          - content
+        desc: ''
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765937094673'
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: c460e380-9d1c-44ba-98af-8393ef54b020
+          role: system
+          text: 你是一名资深投标文件合规审查专家，熟悉政府及企业招标文件的评审标准，能够从完整性、语言质量及风险条款角度对投标文件章节进行专业判断，并提炼可用于全局合规检查的关键信息。
+        - role: user
+          text: '请你仅针对提供的单个章节内容，执行「章节内合规检查」，不得引用或假设其他章节的内容，也不得进行全局层面的判断。
+
+            本次检查需完成以下任务：
+
+            一、章节内合规检查
+
+            1️⃣ 完整性检查（Completeness）
+
+            判断该章节是否覆盖其应包含的主要内容要点
+
+            指出是否存在明显缺项、内容空泛或未实质性回应的问题
+
+            2️⃣ 语言质量检查（Language Quality）
+
+            检查语言是否规范、专业、清晰
+
+            指出错别字、病句、歧义表述或不符合标书语境的用语
+
+            3️⃣ 风险条款检查（Risk Check）
+
+            识别可能导致废标、扣分或履约风险的表述
+
+            包括但不限于：承诺不清、责任模糊、用词过于绝对或不严谨的内容
+
+            二、关键要素抽取
+
+            从本章节中客观抽取可用于后续全局合规检查的关键信息，例如：
+
+            技术参数或技术承诺
+
+            服务范围与工作内容
+
+            时间节点、周期或交付要求
+
+            资质、人员、业绩相关表述
+
+            明确或隐含的承诺事项
+
+            仅抽取文本中已明确表达的内容，不得补充、推测或编造。
+
+
+            三、章节结论生成
+
+            基于上述检查结果，对该章节给出一个明确的合规性结论，结论仅限于本章节本身，例如：
+
+            基本合规
+
+            存在一般问题
+
+            存在明显风险
+
+            并简要说明判断依据。
+
+
+            输出要求（非常重要）
+
+            输出格式必须为 Markdown，结构如下：
+
+            ## 章节内合规检查结果
+
+
+            ### 一、完整性检查
+
+            - 结论：
+
+            - 说明：
+
+
+            ### 二、语言质量检查
+
+            - 结论：
+
+            - 说明：
+
+
+            ### 三、风险条款检查
+
+            - 风险点：
+
+            - 说明：
+
+
+            ### 四、关键要素抽取
+
+            - 要素 1：
+
+            - 要素 2：
+
+            - …
+
+
+            ### 五、章节合规结论
+
+            - 结论：
+
+            - 说明：
+
+            约束条件（务必遵守）
+
+            仅基于当前章节内容进行判断
+
+            不得进行跨章节比较
+
+            不得给出全局合规结论
+
+            不得引入招标文件中未在本章节体现的内容
+
+            不得编造不存在的信息
+
+            【章节内容】：
+
+            {{#1765937126041.content#}}'
+        selected: false
+        title: 合规检查LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: '1765938026139'
+      parentId: '1765937094673'
+      position:
+        x: 432
+        y: 68
+      positionAbsolute:
+        x: 672.5534297565985
+        y: 514
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+      zIndex: 1002
+    - data:
+        code: "def main(arg1: str, title: str, id: str, content: str) -> dict:\n \
+          \   # 构造数组数据，保留占位符\n    records_list = [{\n        \"id\": id,\n       \
+          \ \"title\": title,\n        \"content\": content,\n        \"summary\"\
+          : arg1\n    }]\n    return {\n        \"records\": records_list\n    }"
+        code_language: python3
+        desc: ''
+        isInIteration: true
+        isInLoop: false
+        iteration_id: '1765937094673'
+        outputs:
+          records:
+            children: null
+            type: array[object]
+        selected: false
+        title: 合并组数
+        type: code
+        variables:
+        - value_selector:
+          - '1765938026139'
+          - text
+          variable: arg1
+        - value_selector:
+          - '1765937126041'
+          - title
+          variable: title
+        - value_selector:
+          - '1765937126041'
+          - id
+          variable: id
+        - value_selector:
+          - '1765937126041'
+          - content
+          variable: content
+      height: 54
+      id: '1765939215971'
+      parentId: '1765937094673'
+      position:
+        x: 736
+        y: 68
+      positionAbsolute:
+        x: 976.5534297565985
+        y: 514
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+      zIndex: 1002
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1765951058931'
+          - result
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: aeb1765f-066c-4c8e-b28d-15d6fad7bc02
+          role: system
+          text: '你是一名资深招投标合规评审专家，熟悉政府及企业招标评审规则，能够基于已结构化的投标事实信息，对投标文件进行整体合规性判断、风险识别与问题归纳。
+
+            你不需要也不允许重新解读原始章节文本，仅基于输入的结构化信息进行判断。'
+        - id: a331644d-9590-47f4-ae16-f935be5005bf
+          role: user
+          text: '输入说明（User / Instruction）
+
+            你将收到两类输入数据：
+
+            招标需求 / 招标文件要求
+
+            投标文件各章节的结构化检查结果，每个章节包含：
+
+            section_title：章节名称
+
+            key_elements：该章节抽取的关键要素列表
+
+            section_conclusion：该章节的合规结论
+
+            核心任务说明
+
+            请基于以上输入，执行 全局合规检查（Global Compliance Check），完成以下工作：
+
+            一、跨章节一致性检查（Consistency）
+
+            检查不同章节中的关键要素是否存在：
+
+            相互矛盾
+
+            参数不一致
+
+            承诺冲突
+
+            明确指出涉及的章节及冲突点
+
+
+            二、资质符合性检查（Qualification）
+
+            基于各章节关键要素，判断投标方在以下方面是否满足招标要求：
+
+            企业资质
+
+            人员资质
+
+            业绩要求
+
+            证照或许可要求
+
+            指出缺失、不明确或不符合项
+
+
+            三、招标需求整体响应度评估
+
+            对照招标需求，判断：
+
+            是否存在未响应的关键要求
+
+            是否存在响应但不充分或表述模糊的情况
+
+            仅基于输入的关键要素进行判断，不得假设未提供的信息已满足要求
+
+
+            四、全局风险识别
+
+            识别可能导致以下后果的全局性问题：
+
+            一票否决
+
+            重大扣分
+
+            履约风险
+
+            按风险严重程度进行分类说明
+
+
+            五、全局合规结论输出
+
+            基于整体分析，给出明确的全局合规结论，例如：
+
+            整体基本合规
+
+            存在一般合规问题
+
+            存在重大合规风险
+
+            说明结论依据
+
+
+            输出要求（必须遵守）
+
+            输出格式：Markdown
+
+            ## 全局合规检查结果
+
+
+            ### 一、跨章节一致性检查
+
+            - 是否存在问题：
+
+            - 涉及章节：
+
+            - 说明：
+
+
+            ### 二、资质符合性检查
+
+            - 是否满足要求：
+
+            - 问题点：
+
+
+            ### 三、招标需求整体响应度
+
+            - 未响应要求：
+
+            - 响应不充分项：
+
+
+            ### 四、全局风险识别
+
+            - 高风险：
+
+            - 中风险：
+
+            - 低风险：
+
+
+            ### 五、全局合规结论
+
+            - 结论：
+
+            - 说明：
+
+            关键约束（非常重要）
+
+            不得重新解读或引用章节原文
+
+            不得引入输入数据中不存在的信息
+
+            不得推测或补充未提供的资质或承诺
+
+            判断必须显式基于输入的关键要素或章节结论
+
+            如果信息不足，应明确指出“信息不足”，而不是默认合规
+
+            工程化说明（给模型的隐性约束）
+
+            本次检查基于系统已确认的结构化事实，请将输入数据视为已审核的信息来源，不得对其真实性或完整性进行假设性补充。
+
+            【招标需求】
+
+
+            【投标文件各章节的结构化检查结果】
+
+            {{#context#}}'
+        selected: true
+        title: 全局合规检查
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: '1765950233800'
+      position:
+        x: 547.8265964108962
+        y: 790.827657566532
+      positionAbsolute:
+        x: 547.8265964108962
+        y: 790.827657566532
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: "import json\ndef main(arg1: list) -> dict:\n    results = []\n\n  \
+          \  for record in arg1:\n        results.append({\n            \"section_id\"\
+          : record.get(\"id\"),\n            \"section_title\": record.get(\"title\"\
+          ),\n            \"key_elements\": [],\n            \"section_conclusion\"\
+          : {\n                \"status\": \"\",\n                \"summary\": \"\"\
+          \n            },\n            \"raw_summary\": record.get(\"summary\")\n\
+          \        })\n\n    return {\n        # ⚠️ 给大模型用的字符串\n        \"result\"\
+          : json.dumps(results, ensure_ascii=False, indent=2)\n    }"
+        code_language: python3
+        desc: ''
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: 提取检查数据
+        type: code
+        variables:
+        - value_selector:
+          - '1765937094673'
+          - output
+          variable: arg1
+      height: 54
+      id: '1765951058931'
+      position:
+        x: 240.55342975659846
+        y: 801.7374075479786
+      positionAbsolute:
+        x: 240.55342975659846
+        y: 801.7374075479786
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - '1765950233800'
+          - text
+          variable: text
+        - value_selector:
+          - '1765937094673'
+          - output
+          variable: output
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: '1765952053521'
+      position:
+        x: 851.8265964108962
+        y: 790.827657566532
+      positionAbsolute:
+        x: 851.8265964108962
+        y: 790.827657566532
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
     viewport:
-      x: 0
-      y: 0
-      zoom: 1
+      x: -77.33251387222208
+      y: -164.71438422146161
+      zoom: 0.8249501606641393

@@ -287,6 +287,6 @@ workflow:
       type: custom
       width: 244
     viewport:
-      x: -357
-      y: -88
+      x: -533
+      y: -96
       zoom: 1
