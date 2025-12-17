@@ -87,23 +87,23 @@
 
     <div class="card space-y-4">
       <div>
-        <label class="block text-sm font-medium mb-2">上传招标文件</label>
+        <label class="block text-sm font-medium mb-2">选择招标文件</label>
         <input type="file" id="fileInput" class="input" accept=".doc,.docx,.pdf,.txt,.md">
         <p class="text-xs text-gray-500 mt-1">支持 Word、PDF、TXT、MD，≤50MB</p>
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-2">用户需求（可选）</label>
+        <label class="block text-sm font-medium mb-2">说明（可选）</label>
         <textarea id="userReq" class="input" rows="4" placeholder="请输入重点需求"></textarea>
       </div>
 
       <div class="flex space-x-2">
-        <button id="runBtn" class="btn btn-primary">执行</button>
+        <button id="runBtn" class="btn btn-primary">提交</button>
        </div>
 
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium"><h1>执行结果</h1></label>
+          <label class="block text-sm font-medium"><h2>输出招标需求：</h2></label>
          </div>
         <div id="previewMode">
           <div id="markdownPreview" class="input p-4" style="min-height: 300px; overflow-y: auto;"></div>

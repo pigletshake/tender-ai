@@ -86,17 +86,17 @@
 
     <div class="card space-y-4">
       <div>
-        <label class="block text-sm font-medium mb-2">上一步结果</label>
+        <label class="block text-sm font-medium mb-2">招标文件解析结果</label>
         <textarea id="prevInput" class="input" rows="6" placeholder="来自步骤1的解析结果"></textarea>
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-2">用户说明</label>
+        <label class="block text-sm font-medium mb-2">说明（选填）</label>
         <textarea id="content1" class="input" rows="4" placeholder="请输入用户需求"></textarea>
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-2">标书类型</label>
+        <label class="block text-sm font-medium mb-2">标书类型（暂不支持）</label>
         <select id="tenderType" class="input">
           <option value="technical">技术标</option>
           <option value="business">商务标</option>
@@ -108,12 +108,12 @@
       </div>
 
       <div class="flex space-x-2">
-        <button id="runBtn" class="btn btn-primary">执行</button>
+        <button id="runBtn" class="btn btn-primary">提交</button>
       </div>
 
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium"><h1>执行结果</h1></label>
+          <label class="block text-sm font-medium"><h2>输出标书大纲：</h2></label>
                   </div>
         <div id="previewMode">
           <div id="markdownPreview" class="input p-4" style="min-height: 300px; overflow-y: auto;"></div>

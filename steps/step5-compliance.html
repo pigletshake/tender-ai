@@ -91,19 +91,22 @@
 
     <div class="card space-y-4">
       <div>
-        <label class="block text-sm font-medium mb-2">选择检查类型</label>
+        <label class="block text-sm font-medium mb-2">选择类型</label>
         <select id="checkType" class="input">
           <option value="all">全部检查</option>
          </select>
-        包含：章节内合规检查；全局合规检查
+         <div class="text-sm text-gray-500" style="font-size: 12px;">
+        包含：<br/>
+        章节内合规检查；全局合规检查
         章节内合规检查，包含完整性检查completeness（章节完整性、必备材料完整性）；语言质量检查language（错别字、病句/可读性）；
         风险条款检查risk（模糊承诺、偏离招标条件的措辞、容易被扣分的表述）；<br/>
         全局合规检查，包含一致性检查consistency（金额一致性、工期一致性、人员配置一致性、文本逻辑一致性）；
+          </div>
       </div>
 
       <div id="prevInputContainer">
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium"><h1 style="text-align: center;">标书分章节展示</h1></label>
+          <label class="block text-sm font-medium"><h2 style="text-align: center;">一、分章节检查结果：</h2></label>
             </div>
         <!-- 动态生成的章节将插入这里 -->
       </div>
@@ -111,7 +114,7 @@
       <!-- 全局检查结果显示区域 -->
       <div id="globalCheckResultContainer" class="mt-4" style="display: none;">
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium"><h1 style="text-align: center;">全局检查结果</h1></label>
+          <label class="block text-sm font-medium"><h1 style="text-align: center;">二、全局检查结果</h1></label>
         </div>
         <div id="globalCheckResult" class="input p-4 bg-blue-50 border border-blue-200 rounded-lg" style="min-height: 300px; overflow-y: auto;"></div>
       </div>
@@ -125,7 +128,7 @@
         <button id="selectAllBtn" class="btn btn-secondary">全选</button>
         <button id="prevInputEditBtn" class="btn btn-secondary text-sm">编辑模式</button>
       
-        <button id="runBtn" class="btn btn-primary">执行检查</button>
+        <button id="runBtn" class="btn btn-primary">提交合规检查</button>
       </div>
 
 
