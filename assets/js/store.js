@@ -1,5 +1,5 @@
 // 简单跨页存储，使用 localStorage 保底
-const STORE_KEY = 'yibiao_store_v1';
+const STORE_KEY = 'biao_store_v1';
 
 function loadStore() {
   try {

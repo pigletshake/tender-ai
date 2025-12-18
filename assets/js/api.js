@@ -99,7 +99,7 @@ async function callDifyWorkflow(apiKey, inputs = {}) {
   if (!apiKey) throw new Error('Dify API Key未配置');
   const body = {
     inputs,
-    response_mode: 'blocking',
+    response_mode: 'streaming',
     user: DIFY_CONFIG.user,
   };
   const res = await fetch(`${DIFY_CONFIG.baseURL}/workflows/run`, {
