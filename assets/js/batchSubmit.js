@@ -121,6 +121,7 @@ function clearBatchProgress(key) {
  * @param {string} options.userReq - 用户需求
  * @param {string} options.apiKey - API Key
  * @param {Function} options.onProgress - 进度回调函数 (current, total, batchTitle)
+ * @param {Function} options.onStreamChunk - 流式文本块回调函数 (batchIndex, batchTitle, textChunk, allBatchesContent)
  * @param {Function} options.onError - 错误回调函数 (error)
  * @param {boolean} options.resume - 是否从上次失败点继续（默认 true）
  * @returns {Promise<Object>} 返回合并后的完整响应数据
@@ -133,6 +134,7 @@ async function batchSubmitTender(options) {
     userReq,
     apiKey,
     onProgress,
+    onStreamChunk,
     onError,
     resume = true
   } = options;
@@ -188,6 +190,9 @@ async function batchSubmitTender(options) {
         onProgress(i + 1, batches.length, `正在提交：${batch.title}`);
       }
       
+      // 初始化当前批次的流式文本
+      let currentBatchFullText = '';
+      
       try {
         // 构建该批次的输入
         const inputs = {
@@ -203,7 +208,7 @@ async function batchSubmitTender(options) {
           inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.trim();
         }
         
-        // 调用 API
+        // 流式调用 API
         const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
           method: 'POST',
           headers: {
@@ -212,7 +217,7 @@ async function batchSubmitTender(options) {
           },
           body: JSON.stringify({
             inputs,
-            response_mode: 'blocking',
+            response_mode: 'streaming',
             user: API.DIFY_CONFIG.user,
           }),
         });
@@ -222,18 +227,156 @@ async function batchSubmitTender(options) {
           throw new Error(errorData?.message || errorData?.data?.error || `API调用失败: ${response.status}`);
         }
         
-        const responseData = await response.json();
-        if (responseData?.data?.error) {
-          throw new Error(responseData.data.error);
+        // 处理流式响应
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullText = '';
+        let workflowRunId = null;
+        let taskId = null;
+        let finalOutputs = null;
+        let hasError = false;
+        let errorMessage = '';
+        
+        console.log(`[批次 ${i + 1}] 开始处理流式响应`);
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log(`[批次 ${i + 1}] 流式响应读取完成`);
+              break;
+            }
+            
+            // 解码数据块
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+            
+            // 处理 SSE 格式的数据（以 \n\n 分隔）
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || ''; // 保留最后一个不完整的数据块
+            
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              
+              // SSE 格式：data: {...}
+              if (!line.startsWith('data: ')) {
+                console.warn(`[批次 ${i + 1}] 跳过非 data 行:`, line.substring(0, 50));
+                continue;
+              }
+              
+              try {
+                const jsonStr = line.substring(6); // 去掉 'data: ' 前缀
+                const data = JSON.parse(jsonStr);
+                
+                // 处理不同的事件类型
+                if (data.event === 'workflow_started') {
+                  workflowRunId = data.workflow_run_id;
+                  taskId = data.task_id;
+                  console.log(`[批次 ${i + 1}] 工作流已启动:`, workflowRunId);
+                } else if (data.event === 'text_chunk') {
+                  // 收集文本块
+                  if (data.data && data.data.text) {
+                    const textChunk = data.data.text;
+                    fullText += textChunk;
+                    currentBatchFullText = fullText; // 更新当前批次的完整文本
+                    console.log(`[批次 ${i + 1}] 收到文本块 (${textChunk.length} 字符):`, textChunk.substring(0, 50) + '...');
+                    
+                    // 实时回调，更新预览
+                    if (onStreamChunk) {
+                      try {
+                        // 构建当前所有批次的内容（包括已完成的批次和当前批次的流式内容）
+                        const allBatchesContent = [...batchResults];
+                        // 添加当前批次的流式内容
+                        allBatchesContent.push({
+                          id: `batch-${i + 1}`,
+                          title: batch.title,
+                          content: currentBatchFullText
+                        });
+                        console.log(`[批次 ${i + 1}] 调用 onStreamChunk，总批次数: ${allBatchesContent.length}`);
+                        onStreamChunk(i, batch.title, textChunk, allBatchesContent);
+                      } catch (e) {
+                        console.error(`[批次 ${i + 1}] 调用 onStreamChunk 失败:`, e);
+                      }
+                    } else {
+                      console.warn(`[批次 ${i + 1}] onStreamChunk 回调未定义`);
+                    }
+                  }
+                } else if (data.event === 'workflow_finished') {
+                  // 工作流完成，提取最终结果
+                  if (data.data) {
+                    finalOutputs = data.data.outputs;
+                    if (data.data.error) {
+                      hasError = true;
+                      errorMessage = data.data.error;
+                    }
+                    console.log(`[批次 ${i + 1}] 工作流已完成，状态:`, data.data.status);
+                  }
+                } else if (data.event === 'node_finished' && data.data && data.data.status === 'failed') {
+                  // 节点失败
+                  if (data.data.error) {
+                    hasError = true;
+                    errorMessage = data.data.error;
+                  }
+                  console.error(`[批次 ${i + 1}] 节点执行失败:`, data.data.error);
+                } else {
+                  console.log(`[批次 ${i + 1}] 收到事件:`, data.event);
+                }
+              } catch (e) {
+                // 忽略解析错误，继续处理下一个数据块
+                console.warn(`[批次 ${i + 1}] 解析 SSE 数据失败:`, e, line.substring(0, 100));
+              }
+            }
+          }
+          
+          // 处理剩余的缓冲区数据
+          if (buffer.trim()) {
+            const lines = buffer.split('\n\n');
+            for (const line of lines) {
+              if (!line.trim() || !line.startsWith('data: ')) continue;
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.event === 'text_chunk' && data.data && data.data.text) {
+                  fullText += data.data.text;
+                  currentBatchFullText = fullText;
+                  // 实时回调，更新预览
+                  if (onStreamChunk) {
+                    const allBatchesContent = [...batchResults];
+                    allBatchesContent.push({
+                      id: `batch-${i + 1}`,
+                      title: batch.title,
+                      content: currentBatchFullText
+                    });
+                    onStreamChunk(i, batch.title, data.data.text, allBatchesContent);
+                  }
+                } else if (data.event === 'workflow_finished' && data.data) {
+                  finalOutputs = data.data.outputs;
+                  if (data.data.error) {
+                    hasError = true;
+                    errorMessage = data.data.error;
+                  }
+                }
+              } catch (e) {
+                console.warn('解析 SSE 数据失败:', e);
+              }
+            }
+          }
+          
+          // 检查是否有错误
+          if (hasError) {
+            throw new Error(errorMessage || '工作流执行失败');
+          }
+        } catch (streamErr) {
+          throw new Error(`批次 ${i + 1} (${batch.title}) 流式处理失败: ${streamErr.message}`);
         }
         
         // 提取该批次的结果
         let batchContent = null;
         
-        // 优先从 outputs.content 数组获取（这是 step4 的标准格式）
-        if (responseData?.data?.outputs?.content && Array.isArray(responseData.data.outputs.content)) {
+        // 优先从 finalOutputs 中提取（流式输出的最终结果）
+        if (finalOutputs && finalOutputs.content && Array.isArray(finalOutputs.content)) {
           // 如果是数组格式，收集所有内容项
-          const contentItems = responseData.data.outputs.content;
+          const contentItems = finalOutputs.content;
           if (contentItems.length === 1) {
             // 只有一个元素，直接使用
             batchContent = {
@@ -253,20 +396,26 @@ async function batchSubmitTender(options) {
               }).join('\n\n')
             };
           }
-        } else if (responseData?.data?.outputs?.text) {
+        } else if (finalOutputs && finalOutputs.text) {
           // 如果是文本格式
           batchContent = {
             id: `batch-${i + 1}`,
             title: batch.title,
-            content: responseData.data.outputs.text
+            content: finalOutputs.text
           };
-        } else {
-          // 其他格式，尝试提取
-          const extractedContent = Utils.getResultContent(responseData);
+        } else if (fullText || currentBatchFullText) {
+          // 使用收集的流式文本
           batchContent = {
             id: `batch-${i + 1}`,
             title: batch.title,
-            content: extractedContent
+            content: fullText || currentBatchFullText
+          };
+        } else {
+          // 其他格式，尝试提取
+          batchContent = {
+            id: `batch-${i + 1}`,
+            title: batch.title,
+            content: ''
           };
         }
         

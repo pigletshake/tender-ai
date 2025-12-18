@@ -157,7 +157,10 @@
       
       try {
         let parsedResult = result || currentResultData;
-        if (!parsedResult) return;
+        if (!parsedResult) {
+          console.warn('renderMarkdownPreview: 没有数据可渲染');
+          return;
+        }
         
         if (typeof parsedResult === 'string') {
           try {
@@ -183,6 +186,7 @@
         
         if (contentArray && contentArray.length > 0) {
           // 数组格式：合并所有章节的 Markdown
+          console.log(`renderMarkdownPreview: 渲染 ${contentArray.length} 个章节`);
           contentArray.forEach((item, index) => {
             markdown += `## ${item.title || `章节 ${index + 1}`}\n\n`;
             markdown += item.content || '';
@@ -199,8 +203,10 @@
         } else {
           markdownPreview.textContent = markdown;
         }
+        
+        console.log(`renderMarkdownPreview: 渲染完成，Markdown 长度: ${markdown.length}`);
       } catch (e) {
-        console.error('渲染预览失败:', e);
+        console.error('渲染预览失败:', e, result);
         markdownPreview.textContent = Utils.getResultContent(result || currentResultData);
       }
     }
@@ -463,6 +469,12 @@
         // 禁用提交按钮，显示进度
         runBtn.disabled = true;
         runBtn.textContent = '提交中...';
+        editBtn.disabled = true;
+        nextBtn.disabled = true;
+        
+        // 确保预览模式可见，用于显示流式输出
+        previewMode.classList.remove('hidden');
+        editMode.classList.add('hidden');
         
         // 检查是否有未完成的批次
         const progressKey = BatchSubmit.getBatchProgressKey(
@@ -482,7 +494,7 @@
           shouldResume = confirm(`检测到未完成的批次（已完成 ${completed}/${total}），是否从第 ${completed + 1} 个批次继续提交？\n\n点击"确定"继续，点击"取消"重新开始。`);
         }
         
-        // 使用分批提交（支持断点续传）
+        // 使用分批提交（支持断点续传和流式输出）
         const mergedResult = await BatchSubmit.batchSubmitTender({
           outline: outlineResult.value.trim(),
           parseResult: parseResult.value.trim(),
@@ -494,6 +506,48 @@
             // 更新按钮文本显示进度
             runBtn.textContent = `提交中... (${current}/${total}) ${batchTitle}`;
           },
+          onStreamChunk: (batchIndex, batchTitle, textChunk, allBatchesContent) => {
+            // 实时更新预览：显示所有已完成的批次和当前批次的流式内容
+            try {
+              console.log('收到流式文本块:', { 
+                batchIndex, 
+                batchTitle, 
+                textChunkLength: textChunk.length,
+                textChunkPreview: textChunk.substring(0, 50),
+                allBatchesCount: allBatchesContent.length 
+              });
+              
+              const tempResult = {
+                data: {
+                  outputs: {
+                    content: allBatchesContent
+                  }
+                }
+              };
+              
+              // 确保预览模式可见
+              if (previewMode) {
+                previewMode.classList.remove('hidden');
+              }
+              if (editMode) {
+                editMode.classList.add('hidden');
+              }
+              
+              // 实时更新预览
+              if (markdownPreview) {
+                renderMarkdownPreview(tempResult);
+                // 滚动到底部以显示最新内容
+                markdownPreview.scrollTop = markdownPreview.scrollHeight;
+              } else {
+                console.error('markdownPreview 元素不存在');
+              }
+              
+              // 同时更新 currentResultData，以便后续使用
+              currentResultData = tempResult;
+            } catch (e) {
+              console.error('更新流式预览失败:', e, e.stack);
+            }
+          },
           onError: (error) => {
             console.error('分批提交错误:', error);
             // 出错时不清除进度，以便下次继续
@@ -503,6 +557,8 @@
         // 恢复按钮状态
         runBtn.disabled = false;
         runBtn.textContent = '提交';
+        editBtn.disabled = false;
+        nextBtn.disabled = false;
         
         // 使用合并后的响应数据渲染结果
         renderResult(mergedResult);
@@ -525,9 +581,11 @@
           step4UserReq: userReq.value.trim(),
         });
       } catch (err) {
-        // 恢复按钮状态
+        // 出错时也要恢复按钮状态
         runBtn.disabled = false;
         runBtn.textContent = '提交';
+        editBtn.disabled = false;
+        nextBtn.disabled = false;
         UI.showError(err.message);
       }
     });
