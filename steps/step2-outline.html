@@ -86,17 +86,22 @@
 
     <div class="card space-y-4">
       <div>
-        <label class="block text-sm font-medium mb-2">招标文件解析结果</label>
+        <label class="block text-sm font-medium mb-2">招标文件解析：</label>
         <textarea id="prevInput" class="input" rows="6" placeholder="来自步骤1的解析结果"></textarea>
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-2">说明（选填）</label>
+        <label class="block text-sm font-medium mb-2">字数目标（必填）：</label>
+        <input type="number" id="wordCountTarget" class="input" placeholder="请输入目标字数，例如：5000" min="1" required>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-2">说明（选填）：</label>
         <textarea id="content1" class="input" rows="4" placeholder="请输入用户需求"></textarea>
       </div>
 
+
       <div>
-        <label class="block text-sm font-medium mb-2">标书类型（暂不支持）</label>
+        <label class="block text-sm font-medium mb-2">标书类型（暂不支持）：</label>
         <select id="tenderType" class="input">
           <option value="technical">技术标</option>
           <option value="business">商务标</option>
@@ -139,6 +144,7 @@
   <script>
     const prevInput = document.getElementById('prevInput');
     const content1 = document.getElementById('content1');
+    const wordCountTarget = document.getElementById('wordCountTarget');
     const tenderType = document.getElementById('tenderType');
     const runBtn = document.getElementById('runBtn');
     const saveBtn = document.getElementById('saveBtn');
@@ -163,6 +169,7 @@
     const state = Store.getState();
     if (state.step1Result) prevInput.value = Utils.getResultContent(state.step1Result);
     if (state.step2Content1) content1.value = state.step2Content1;
+    if (state.step2WordCountTarget) wordCountTarget.value = state.step2WordCountTarget;
     if (state.step2TenderType) tenderType.value = state.step2TenderType;
     if (state.step2Result) {
       resultArea.value = Utils.getResultContent(state.step2Result);
@@ -199,20 +206,192 @@
           UI.showError('请先填写上一步结果');
           return;
         }
+        
+        // 验证字数目标（必填）
+        const wordCountValue = wordCountTarget.value;
+        if (wordCountValue === '' || wordCountValue === null || wordCountValue === undefined) {
+          UI.showError('请填写字数目标');
+          return;
+        }
+        const wordCount = parseInt(wordCountValue, 10);
+        if (isNaN(wordCount) || wordCount <= 0) {
+          UI.showError('字数目标必须是大于0的数字');
+          return;
+        }
+        
         const inputs = {
           previous_result: prevInput.value.trim(),
           content1: content1.value.trim(),
-          tender_type: tenderType.value
+          tender_type: tenderType.value,
+          word_count_target: wordCount
         };
-        const result = await API.callDifyWorkflow(apiKey, inputs);
-        resultArea.value = Utils.getResultContent(result);
-        renderMarkdownPreview();
-        Store.setState({
-          step2Result: result,
-          step2Content1: content1.value.trim(),
-          step2TenderType: tenderType.value
+        
+        // 流式调用 API
+        const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs,
+            response_mode: 'streaming',
+            user: API.DIFY_CONFIG.user,
+          }),
         });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData?.message || errorData?.data?.error || `API调用失败: ${response.status}`);
+        }
+        
+        // 处理流式响应
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullText = '';
+        let workflowRunId = null;
+        let taskId = null;
+        let finalOutputs = null;
+        let hasError = false;
+        let errorMessage = '';
+        
+        // 禁用按钮，显示加载状态
+        runBtn.disabled = true;
+        runBtn.textContent = '处理中...';
+        editBtn.disabled = true;
+        nextBtn.disabled = true;
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            // 解码数据块
+            buffer += decoder.decode(value, { stream: true });
+            
+            // 处理 SSE 格式的数据（以 \n\n 分隔）
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || ''; // 保留最后一个不完整的数据块
+            
+            for (const line of lines) {
+              if (!line.trim() || !line.startsWith('data: ')) continue;
+              
+              try {
+                const data = JSON.parse(line.substring(6)); // 去掉 'data: ' 前缀
+                
+                // 处理不同的事件类型
+                if (data.event === 'workflow_started') {
+                  workflowRunId = data.workflow_run_id;
+                  taskId = data.task_id;
+                } else if (data.event === 'text_chunk') {
+                  // 收集文本块
+                  if (data.data && data.data.text) {
+                    fullText += data.data.text;
+                    // 实时更新预览（流式显示）
+                    resultArea.value = fullText;
+                    if (marked) {
+                      markdownPreview.innerHTML = marked.parse(fullText);
+                    } else {
+                      markdownPreview.textContent = fullText;
+                    }
+                  }
+                } else if (data.event === 'workflow_finished') {
+                  // 工作流完成，提取最终结果
+                  if (data.data) {
+                    finalOutputs = data.data.outputs;
+                    if (data.data.error) {
+                      hasError = true;
+                      errorMessage = data.data.error;
+                    }
+                  }
+                } else if (data.event === 'node_finished' && data.data && data.data.status === 'failed') {
+                  // 节点失败
+                  if (data.data.error) {
+                    hasError = true;
+                    errorMessage = data.data.error;
+                  }
+                }
+              } catch (e) {
+                // 忽略解析错误，继续处理下一个数据块
+                console.warn('解析 SSE 数据失败:', e, line);
+              }
+            }
+          }
+          
+          // 处理剩余的缓冲区数据
+          if (buffer.trim()) {
+            const lines = buffer.split('\n\n');
+            for (const line of lines) {
+              if (!line.trim() || !line.startsWith('data: ')) continue;
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.event === 'text_chunk' && data.data && data.data.text) {
+                  fullText += data.data.text;
+                } else if (data.event === 'workflow_finished' && data.data) {
+                  finalOutputs = data.data.outputs;
+                  if (data.data.error) {
+                    hasError = true;
+                    errorMessage = data.data.error;
+                  }
+                }
+              } catch (e) {
+                console.warn('解析 SSE 数据失败:', e);
+              }
+            }
+          }
+          
+          // 检查是否有错误
+          if (hasError) {
+            throw new Error(errorMessage || '工作流执行失败');
+          }
+          
+          // 提取最终的文本内容
+          let textContent = fullText;
+          
+          // 如果 finalOutputs 中有 text 字段，优先使用
+          if (finalOutputs && finalOutputs.text) {
+            textContent = finalOutputs.text;
+          } else if (!textContent && finalOutputs) {
+            // 如果没有收集到文本，尝试从 outputs 中提取
+            textContent = Utils.getResultContent({ data: { outputs: finalOutputs } });
+          }
+          
+          // 更新结果
+          resultArea.value = textContent;
+          
+          // 最终渲染 Markdown 预览
+          if (textContent && marked) {
+            markdownPreview.innerHTML = marked.parse(textContent);
+          } else {
+            markdownPreview.textContent = textContent || '暂无内容';
+          }
+          
+          // 确保显示预览模式
+          previewMode.classList.remove('hidden');
+          editMode.classList.add('hidden');
+          
+          // 缓存结果（只保存文本内容）
+          Store.setState({
+            step2Result: textContent,
+            step2Content1: content1.value.trim(),
+            step2WordCountTarget: wordCountTarget.value.trim(),
+            step2TenderType: tenderType.value
+          });
+          
+        } finally {
+          // 恢复按钮状态
+          runBtn.disabled = false;
+          runBtn.textContent = '提交';
+          editBtn.disabled = false;
+          nextBtn.disabled = false;
+        }
       } catch (err) {
+        // 出错时也要恢复按钮状态
+        runBtn.disabled = false;
+        runBtn.textContent = '提交';
+        editBtn.disabled = false;
+        nextBtn.disabled = false;
         UI.showError(err.message);
       }
     });
@@ -222,6 +401,7 @@
       Store.setState({
         step2Result: resultArea.value,
         step2Content1: content1.value.trim(),
+        step2WordCountTarget: wordCountTarget.value.trim(),
         step2TenderType: tenderType.value
       });
       window.location.href = 'step3-company.html';
