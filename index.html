@@ -3,23 +3,147 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>标书AI助手</title>
+  <title>写标书</title>
   <link rel="stylesheet" href="assets/css/shared.css">
+  <style>
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+    
+    .step-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+      border: 2px solid transparent;
+    }
+    
+    .step-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+      border-color: #2563eb;
+    }
+    
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .step-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 0.5rem;
+    }
+    
+    .step-description {
+      font-size: 0.875rem;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+    
+    .page-header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    
+    .page-title {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #1f2937;
+      margin: 0;
+    }
+    
+    .version-info {
+      text-align: center;
+      padding: 1.5rem 0;
+      color: #9ca3af;
+      font-size: 0.875rem;
+      border-top: 1px solid #e5e7eb;
+      margin-top: 3rem;
+    }
+    
+    @media (max-width: 768px) {
+      .steps-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+      
+      .page-title {
+        font-size: 2rem;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1 class="text-2xl font-bold mb-4">标书AI助手 - 分步流程</h1>
-    <div class="card">
-      <h2 class="text-xl font-semibold mb-2">导航</h2>
-      <ol class="list-decimal list-inside space-y-2">
-        <li><a href="steps/step1-parse.html" class="text-blue-600 underline">步骤1：解析招标文件</a></li>
-        <li><a href="steps/step2-outline.html" class="text-blue-600 underline">步骤2：生成标书大纲</a></li>
-        <li><a href="steps/step3-company.html" class="text-blue-600 underline">步骤3：补充公司资料</a></li>
-        <li><a href="steps/step4-write.html" class="text-blue-600 underline">步骤4：写标书</a></li>
-        <li><a href="steps/step5-compliance.html" class="text-blue-600 underline">步骤5：合规检查</a></li>
-        <li><a href="steps/step6-merge.html" class="text-blue-600 underline">步骤6：导出</a></li>
-      </ol>
-      <p class="text-sm text-gray-500 mt-4">跨页状态（文件/结果）保存在浏览器 localStorage。</p>
+    <div class="page-header">
+      <h1 class="page-title">写标书</h1>
+    </div>
+    
+    <div class="steps-grid">
+      <a href="steps/step1-parse.html" class="step-card">
+        <div class="step-number">1</div>
+        <div class="step-title">解析招标文件</div>
+        <div class="step-description">上传招标文件，提取关键需求和评分标准</div>
+      </a>
+      
+      <a href="steps/step2-outline.html" class="step-card">
+        <div class="step-number">2</div>
+        <div class="step-title">生成标书大纲</div>
+        <div class="step-description">根据招标需求，自动生成结构化的标书大纲</div>
+      </a>
+      
+      <a href="steps/step3-company.html" class="step-card">
+        <div class="step-number">3</div>
+        <div class="step-title">补充公司资料</div>
+        <div class="step-description">上传公司资质、业绩等相关资料信息</div>
+      </a>
+      
+      <a href="steps/step4-write.html" class="step-card">
+        <div class="step-number">4</div>
+        <div class="step-title">写标书</div>
+        <div class="step-description">基于大纲和资料，生成完整的标书内容</div>
+      </a>
+      
+      <a href="steps/step5-compliance.html" class="step-card">
+        <div class="step-number">5</div>
+        <div class="step-title">合规检查</div>
+        <div class="step-description">检查标书内容的完整性和合规性</div>
+      </a>
+      
+      <a href="steps/step6-merge.html" class="step-card">
+        <div class="step-number">6</div>
+        <div class="step-title">导出</div>
+        <div class="step-description">将标书导出为Word文档格式</div>
+      </a>
+    </div>
+    
+    <div class="version-info">
+      <p>版本号：v0.2.1</p>
+      <p class="text-xs text-gray-400 mt-1">跨页状态保存在浏览器 localStorage</p>
     </div>
   </div>
 </body>

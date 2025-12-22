@@ -80,6 +80,32 @@
     .items-center {
       margin-top: 20px;
     }
+    /* 吸底工具栏样式 */
+    .bottom-toolbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      padding: 1rem;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+    }
+    .bottom-toolbar .toolbar-content {
+      max-width: 1200px;
+      width: 100%;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    /* 给内容区域添加底部padding，避免被工具栏遮挡 */
+    body .container {
+      padding-bottom: 80px !important;
+    }
   </style>
 </head>
 <body>
@@ -102,18 +128,20 @@
       </div>
       
       <div class="flex space-x-2">
-        <button id="editBtn" class="btn btn-secondary text-sm" style="margin-top: 20px;">编辑模式</button>
-        <button id="saveBtn" class="btn btn-secondary" disabled style="margin-top: 20px;">保存</button>
-      </div>
-
-      <!-- 导出按钮 -->
-      <div class="flex space-x-2" style="text-align: center;">
-        <button id="exportBtn" class="btn btn-primary" style="margin-top: 20px;">导出Word</button>
+        <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
+        <button id="exportBtn" class="btn btn-primary">导出Word</button>
       </div>
 
       <!-- 导出结果显示区域 -->
       <div id="exportResult" style="margin-top: 20px;"></div>
    
+    </div>
+  </div>
+  
+  <!-- 吸底工具栏 -->
+  <div class="bottom-toolbar">
+    <div class="toolbar-content">
+      <button id="saveBtn" class="btn btn-secondary" disabled>保存</button>
     </div>
   </div>
 
@@ -159,15 +187,46 @@
           // 将分章节内容组合成 Markdown 格式
           currentContent = step4Data.data.outputs.content.map(item => {
             const title = item.title || '未命名章节';
-            const content = item.content || '';
-            return `## ${title}\n\n${content}`;
+            let content = item.content || '';
+            
+            // 检查 content 是否已经以标题开头（避免重复）
+            // 去除标题中的 Markdown 格式（如 ##）和空白，只比较纯文本
+            const titleText = title.replace(/^#+\s*/, '').trim();
+            const contentStart = content.trim().substring(0, titleText.length);
+            
+            // 如果 content 开头就是标题（忽略大小写和空白），就不添加标题
+            if (contentStart.toLowerCase() === titleText.toLowerCase() || 
+                content.trim().startsWith(titleText) ||
+                content.trim().startsWith(`## ${titleText}`) ||
+                content.trim().startsWith(`# ${titleText}`)) {
+              // content 已经包含标题，直接返回
+              return content;
+            } else {
+              // content 不包含标题，添加标题
+              return `## ${title}\n\n${content}`;
+            }
           }).join('\n\n');
         } else if (step4Data.content && Array.isArray(step4Data.content)) {
           // 兼容其他格式
           currentContent = step4Data.content.map(item => {
             const title = item.title || '未命名章节';
-            const content = item.content || '';
-            return `## ${title}\n\n${content}`;
+            let content = item.content || '';
+            
+            // 检查 content 是否已经以标题开头（避免重复）
+            const titleText = title.replace(/^#+\s*/, '').trim();
+            const contentStart = content.trim().substring(0, titleText.length);
+            
+            // 如果 content 开头就是标题（忽略大小写和空白），就不添加标题
+            if (contentStart.toLowerCase() === titleText.toLowerCase() || 
+                content.trim().startsWith(titleText) ||
+                content.trim().startsWith(`## ${titleText}`) ||
+                content.trim().startsWith(`# ${titleText}`)) {
+              // content 已经包含标题，直接返回
+              return content;
+            } else {
+              // content 不包含标题，添加标题
+              return `## ${title}\n\n${content}`;
+            }
           }).join('\n\n');
         } else if (step4Data.data && step4Data.data.outputs && step4Data.data.outputs.text) {
           currentContent = step4Data.data.outputs.text;

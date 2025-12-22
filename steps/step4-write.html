@@ -77,6 +77,31 @@
       background-color: #f9fafb;
       font-weight: bold;
     }
+    /* 吸底工具栏样式 */
+    .bottom-toolbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      padding: 1rem;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+    }
+    .bottom-toolbar .toolbar-content {
+      max-width: 1200px;
+      width: 100%;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    /* 给内容区域添加底部padding，避免被工具栏遮挡 */
+    body .container {
+      padding-bottom: 80px !important;
+    }
   </style>
 </head>
 <body>
@@ -120,11 +145,15 @@
           <!-- 动态生成的文本框将插入这里 -->
         </div>
       </div>
-      <div class="flex space-x-2">
-        <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
-        <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
-        <button id="nextBtn" class="btn">直接下一步</button>
-      </div>
+    </div>
+  </div>
+  
+  <!-- 吸底工具栏 -->
+  <div class="bottom-toolbar">
+    <div class="toolbar-content">
+      <button id="editBtn" class="btn btn-secondary text-sm">编辑模式</button>
+      <button id="saveBtn" class="btn btn-secondary">保存修改并下一步</button>
+      <button id="nextBtn" class="btn">直接下一步</button>
     </div>
   </div>
 
@@ -268,7 +297,7 @@
             const div = document.createElement('div');
             div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
             
-            // 创建头部容器（序号、勾选框、标题）
+            // 创建头部容器（序号、勾选框、标题、重新生成按钮）
             const header = document.createElement('div');
             header.className = 'flex items-center gap-3 mb-2';
             
@@ -289,15 +318,25 @@
             label.className = 'text-sm font-medium flex-1';
             label.textContent = item.title || `内容 ${index + 1}`;
             
+            // 重新生成按钮
+            const regenerateBtn = document.createElement('button');
+            regenerateBtn.type = 'button';
+            regenerateBtn.className = 'btn btn-secondary text-xs px-2 py-1';
+            regenerateBtn.textContent = '重新生成';
+            regenerateBtn.dataset.chapterIndex = index;
+            regenerateBtn.onclick = () => regenerateSingleChapter(index);
+            
             header.appendChild(number);
             header.appendChild(checkbox);
             header.appendChild(label);
+            header.appendChild(regenerateBtn);
             
             // 文本框
             const textarea = document.createElement('textarea');
             textarea.className = 'input';
             textarea.rows = 10;
             textarea.dataset.itemId = item.id || index;
+            textarea.dataset.chapterIndex = index;
             // 过滤掉 <think> 标签
             textarea.value = filterRedactedReasoning(item.content || '');
             
@@ -311,7 +350,7 @@
             const div = document.createElement('div');
             div.className = 'mb-4 p-4 border border-gray-200 rounded-lg';
             
-            // 创建头部容器（序号、勾选框、标题）
+            // 创建头部容器（序号、勾选框、标题、重新生成按钮）
             const header = document.createElement('div');
             header.className = 'flex items-center gap-3 mb-2';
             
@@ -332,15 +371,25 @@
             label.className = 'text-sm font-medium flex-1';
             label.textContent = item.title || `内容 ${index + 1}`;
             
+            // 重新生成按钮
+            const regenerateBtn = document.createElement('button');
+            regenerateBtn.type = 'button';
+            regenerateBtn.className = 'btn btn-secondary text-xs px-2 py-1';
+            regenerateBtn.textContent = '重新生成';
+            regenerateBtn.dataset.chapterIndex = index;
+            regenerateBtn.onclick = () => regenerateSingleChapter(index);
+            
             header.appendChild(number);
             header.appendChild(checkbox);
             header.appendChild(label);
+            header.appendChild(regenerateBtn);
             
             // 文本框
             const textarea = document.createElement('textarea');
             textarea.className = 'input';
             textarea.rows = 10;
             textarea.dataset.itemId = item.id || index;
+            textarea.dataset.chapterIndex = index;
             // 过滤掉 <think> 标签
             textarea.value = filterRedactedReasoning(item.content || '');
             
@@ -378,6 +427,240 @@
       currentResultData = result;
       renderMarkdownPreview(result);
       renderEditMode(result);
+    }
+
+    // 重新生成单个章节
+    async function regenerateSingleChapter(chapterIndex) {
+      try {
+        // 检查必要的输入
+        if (!outlineResult.value.trim()) {
+          UI.showError('标书大纲不能为空');
+          return;
+        }
+        
+        // 解析大纲，获取所有章节
+        const batches = BatchSubmit.parseOutlineToBatches(outlineResult.value.trim());
+        if (!batches || batches.length === 0) {
+          UI.showError('无法解析标书大纲');
+          return;
+        }
+        
+        if (chapterIndex < 0 || chapterIndex >= batches.length) {
+          UI.showError(`章节索引超出范围（有效范围：0-${batches.length - 1}）`);
+          return;
+        }
+        
+        // 获取要重新生成的章节信息
+        const batch = batches[chapterIndex];
+        
+        // batch.content 包含该章节的完整大纲结构，例如：
+        // # 一、投标函及投标承诺
+        // ## （一）投标函
+        // ## （二）投标承诺声明
+        // 这个内容会传给后台，后台会根据这个大纲结构生成该章节的内容
+        
+        console.log(`[重新生成章节 ${chapterIndex + 1}] 章节标题: ${batch.title}`);
+        console.log(`[重新生成章节 ${chapterIndex + 1}] 传入的大纲内容:`, batch.content);
+        
+        // 找到对应的按钮和文本框 - 使用更精确的选择器
+        // 先尝试在当前可见的编辑模式下查找
+        let regenerateBtn = editMode.querySelector(`button[data-chapter-index="${chapterIndex}"]`);
+        let textarea = editMode.querySelector(`textarea[data-chapter-index="${chapterIndex}"]`);
+        
+        // 如果找不到，可能是因为 editMode 被隐藏了，使用 document 全局查找
+        if (!textarea) {
+          textarea = document.querySelector(`textarea[data-chapter-index="${chapterIndex}"]`);
+          console.log(`[重新生成] 在 editMode 中未找到文本框，尝试全局查找，结果:`, textarea);
+        }
+        if (!regenerateBtn) {
+          regenerateBtn = document.querySelector(`button[data-chapter-index="${chapterIndex}"]`);
+          console.log(`[重新生成] 在 editMode 中未找到按钮，尝试全局查找，结果:`, regenerateBtn);
+        }
+        
+        if (!textarea) {
+          console.error(`[重新生成失败] 无法找到章节 ${chapterIndex + 1} 的文本框`);
+          console.log(`[调试信息] editMode 中的所有 textarea:`, editMode.querySelectorAll('textarea'));
+          console.log(`[调试信息] 所有 data-chapter-index:`, Array.from(editMode.querySelectorAll('[data-chapter-index]')).map(el => el.dataset.chapterIndex));
+          UI.showError(`未找到章节 ${chapterIndex + 1} 的文本框，请确保已切换到编辑模式`);
+          return;
+        }
+        
+        console.log(`[重新生成] 找到文本框，章节索引: ${chapterIndex}, 元素:`, textarea);
+        
+        // 禁用按钮，显示加载状态
+        if (regenerateBtn) {
+          regenerateBtn.disabled = true;
+          regenerateBtn.textContent = '生成中...';
+        }
+        textarea.disabled = true;
+        textarea.value = `正在为章节"${batch.title}"生成内容，请稍候...`;
+        
+        const apiKey = API.DIFY_CONFIG.apiKeys.step4;
+        
+        // 构建输入参数
+        // outline_content: 该章节的完整大纲结构（包括一级标题和所有子章节）
+        // 后台工作流会解析这个大纲，并生成对应的章节内容
+        const inputs = {
+          outline_content: batch.content, // 例如: "# 一、投标函及投标承诺\n## （一）投标函\n## （二）投标承诺声明"
+          company_data: companyResult.value.trim() || '',
+        };
+        
+        if (parseResult.value.trim()) {
+          inputs.previous_result = parseResult.value.trim();
+        }
+        
+        if (userReq.value.trim()) {
+          inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
+        }
+        
+        // 调用 API
+        const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs,
+            response_mode: 'blocking',
+            user: API.DIFY_CONFIG.user,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData?.message || errorData?.data?.error || `API调用失败: ${response.status}`);
+        }
+        
+        // 处理响应
+        const data = await response.json();
+        let finalOutputs = null;
+        
+        if (data.data && data.data.outputs) {
+          finalOutputs = data.data.outputs;
+        } else if (data.outputs) {
+          finalOutputs = data.outputs;
+        } else if (data.error) {
+          throw new Error(data.error || '工作流执行失败');
+        } else {
+          throw new Error('无法解析 API 响应');
+        }
+        
+        // 提取章节内容
+        let chapterContent = '';
+        
+        if (finalOutputs && finalOutputs.content && Array.isArray(finalOutputs.content)) {
+          // 数组格式：合并所有内容项
+          const contentItems = finalOutputs.content;
+          if (contentItems.length === 1) {
+            chapterContent = contentItems[0].content || '';
+          } else if (contentItems.length > 1) {
+            chapterContent = contentItems.map(item => {
+              const itemTitle = item.title || '';
+              const itemContent = item.content || '';
+              return itemTitle ? `## ${itemTitle}\n\n${itemContent}` : itemContent;
+            }).join('\n\n');
+          }
+        } else if (finalOutputs && finalOutputs.text) {
+          chapterContent = finalOutputs.text;
+        } else {
+          chapterContent = JSON.stringify(finalOutputs) || '';
+        }
+        
+        // 过滤掉 <think> 标签
+        chapterContent = filterRedactedReasoning(chapterContent);
+        
+        // 更新文本框内容（编辑模式下的文本框） - 这是最重要的，确保用户立即看到新内容
+        if (textarea) {
+          textarea.value = chapterContent;
+          textarea.disabled = false;
+          console.log(`[重新生成完成] 章节 ${chapterIndex + 1} 的新内容已写入文本框，长度: ${chapterContent.length}`);
+          console.log(`[重新生成完成] 文本框当前值（前100字符）:`, textarea.value.substring(0, 100));
+          
+          // 强制触发 input 事件，确保任何监听器都能收到更新
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+          console.error(`[重新生成失败] 文本框不存在，无法写入内容`);
+          UI.showError('无法找到文本框，内容更新失败');
+          return;
+        }
+        
+        // 更新 currentResultData 中对应章节的内容
+        if (currentResultData) {
+          let contentArray = null;
+          if (currentResultData.data && currentResultData.data.outputs && currentResultData.data.outputs.content) {
+            contentArray = currentResultData.data.outputs.content;
+          } else if (currentResultData.content) {
+            contentArray = currentResultData.content;
+          }
+          
+          if (contentArray && contentArray[chapterIndex]) {
+            // 更新对应章节的内容
+            contentArray[chapterIndex].content = chapterContent;
+            console.log(`[重新生成完成] currentResultData 中章节 ${chapterIndex + 1} 的内容已更新`);
+            
+            // 更新 Store 中的结果
+            Store.setState({
+              step4Result: currentResultData
+            });
+            
+            // 无论当前是预览模式还是编辑模式，都更新预览显示，确保数据同步
+            renderMarkdownPreview(currentResultData);
+          } else {
+            console.warn(`[重新生成警告] 无法找到章节 ${chapterIndex + 1} 在 contentArray 中，但文本框已更新`);
+          }
+        } else {
+          console.warn('[重新生成警告] currentResultData 为空，但文本框已更新');
+          // 即使没有 currentResultData，文本框也已经更新了，用户可以继续编辑
+        }
+        
+        // 恢复按钮状态
+        if (regenerateBtn) {
+          regenerateBtn.disabled = false;
+          regenerateBtn.textContent = '重新生成';
+        }
+        
+        UI.showSuccess(`章节 "${batch.title}" 重新生成成功`);
+        
+      } catch (err) {
+        console.error('重新生成章节失败:', err);
+        
+        // 恢复按钮和文本框状态 - 使用全局查找
+        const regenerateBtn = document.querySelector(`button[data-chapter-index="${chapterIndex}"]`);
+        const textarea = document.querySelector(`textarea[data-chapter-index="${chapterIndex}"]`);
+        
+        if (regenerateBtn) {
+          regenerateBtn.disabled = false;
+          regenerateBtn.textContent = '重新生成';
+        }
+        if (textarea) {
+          textarea.disabled = false;
+          // 如果之前有内容，恢复原内容；否则显示错误提示
+          const state = Store.getState();
+          if (state.step4Result) {
+            try {
+              const parsed = typeof state.step4Result === 'string' ? JSON.parse(state.step4Result) : state.step4Result;
+              let contentArray = null;
+              if (parsed.data && parsed.data.outputs && parsed.data.outputs.content) {
+                contentArray = parsed.data.outputs.content;
+              } else if (parsed.content) {
+                contentArray = parsed.content;
+              }
+              if (contentArray && contentArray[chapterIndex]) {
+                textarea.value = filterRedactedReasoning(contentArray[chapterIndex].content || '');
+              } else {
+                textarea.value = '';
+              }
+            } catch (e) {
+              textarea.value = '';
+            }
+          } else {
+            textarea.value = '';
+          }
+        }
+        
+        UI.showError(`重新生成失败: ${err.message}`);
+      }
     }
 
     // 收集所有结果内容（只收集被勾选的内容）
