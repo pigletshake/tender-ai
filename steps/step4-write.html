@@ -134,7 +134,7 @@
   <script src="../assets/js/api.js"></script>
   <script src="../assets/js/batchSubmit.js"></script>
   <!-- Markdown 渲染库 -->
-  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
   <script>
     const parseResult = document.getElementById('parseResult');
     const outlineResult = document.getElementById('outlineResult');
@@ -150,6 +150,27 @@
     const markdownPreview = document.getElementById('markdownPreview');
     
     let currentResultData = null; // 保存当前结果数据，用于在预览和编辑模式间切换
+
+    // 过滤掉 <think></think> 标签及其内容
+    function filterRedactedReasoning(text) {
+      if (!text || typeof text !== 'string') return text;
+      
+      let filtered = text;
+      
+      // 匹配 <think>...</think> 标签（包括换行和所有字符）
+      // 使用非贪婪匹配，匹配标签内的所有内容（包括换行）
+      // 优先匹配 <think>...</think> 这种格式
+      filtered = filtered.replace(/<think>[\s\S]*?<\/redacted_reasoning>/gi, '');
+      
+      // 也匹配 <think>...</think> 标签（兼容不同的结束标签）
+      filtered = filtered.replace(/<think>[\s\S]*?<\/think>/gi, '');
+      
+      // 移除标签后可能留下的多余空白行（3个或更多连续换行）
+      filtered = filtered.replace(/\n{3,}/g, '\n\n');
+      
+      // 移除开头和结尾的空白
+      return filtered.trim();
+    }
 
     // 渲染 Markdown 预览
     function renderMarkdownPreview(result) {
@@ -188,13 +209,15 @@
           // 数组格式：合并所有章节的 Markdown
           console.log(`renderMarkdownPreview: 渲染 ${contentArray.length} 个章节`);
           contentArray.forEach((item, index) => {
-            markdown += `## ${item.title || `章节 ${index + 1}`}\n\n`;
-            markdown += item.content || '';
+            //markdown += `## ${item.title || `章节 ${index + 1}`}\n\n`;
+            // 过滤掉 <think> 标签
+            const filteredContent = filterRedactedReasoning(item.content || '');
+            markdown += filteredContent;
             markdown += '\n\n';
           });
         } else {
           // 单个结果
-          markdown = Utils.getResultContent(parsedResult);
+          markdown = filterRedactedReasoning(Utils.getResultContent(parsedResult));
         }
         
         // 渲染 Markdown
@@ -231,7 +254,8 @@
             textarea.rows = 14;
             textarea.id = 'resultArea';
             textarea.placeholder = '结果将显示在此';
-            textarea.value = parsedResult;
+            // 过滤掉 <think> 标签
+            textarea.value = filterRedactedReasoning(parsedResult);
             editMode.appendChild(textarea);
             return;
           }
@@ -274,7 +298,8 @@
             textarea.className = 'input';
             textarea.rows = 10;
             textarea.dataset.itemId = item.id || index;
-            textarea.value = item.content || '';
+            // 过滤掉 <think> 标签
+            textarea.value = filterRedactedReasoning(item.content || '');
             
             div.appendChild(header);
             div.appendChild(textarea);
@@ -316,7 +341,8 @@
             textarea.className = 'input';
             textarea.rows = 10;
             textarea.dataset.itemId = item.id || index;
-            textarea.value = item.content || '';
+            // 过滤掉 <think> 标签
+            textarea.value = filterRedactedReasoning(item.content || '');
             
             div.appendChild(header);
             div.appendChild(textarea);
@@ -329,7 +355,8 @@
           textarea.rows = 14;
           textarea.id = 'resultArea';
           textarea.placeholder = '结果将显示在此';
-          textarea.value = Utils.getResultContent(parsedResult);
+          // 过滤掉 <think> 标签
+          textarea.value = filterRedactedReasoning(Utils.getResultContent(parsedResult));
           editMode.appendChild(textarea);
         }
       } catch (e) {
@@ -340,7 +367,8 @@
         textarea.rows = 14;
         textarea.id = 'resultArea';
         textarea.placeholder = '结果将显示在此';
-        textarea.value = Utils.getResultContent(result || currentResultData);
+        // 过滤掉 <think> 标签
+        textarea.value = filterRedactedReasoning(Utils.getResultContent(result || currentResultData));
         editMode.appendChild(textarea);
       }
     }
@@ -506,21 +534,21 @@
             // 更新按钮文本显示进度
             runBtn.textContent = `提交中... (${current}/${total}) ${batchTitle}`;
           },
-          onStreamChunk: (batchIndex, batchTitle, textChunk, allBatchesContent) => {
-            // 实时更新预览：显示所有已完成的批次和当前批次的流式内容
+          onBatchComplete: (batchIndex, batchTitle, batchContent, allBatchesContent) => {
+            // 每个批次完成后立即显示
             try {
-              console.log('收到流式文本块:', { 
-                batchIndex, 
-                batchTitle, 
-                textChunkLength: textChunk.length,
-                textChunkPreview: textChunk.substring(0, 50),
-                allBatchesCount: allBatchesContent.length 
-              });
+              console.log('批次完成:', { batchIndex, batchTitle, allBatchesCount: allBatchesContent.length });
+              
+              // 过滤掉 <think> 标签
+              const filteredBatchesContent = allBatchesContent.map(item => ({
+                ...item,
+                content: filterRedactedReasoning(item.content || '')
+              }));
               
               const tempResult = {
                 data: {
                   outputs: {
-                    content: allBatchesContent
+                    content: filteredBatchesContent
                   }
                 }
               };
@@ -533,7 +561,7 @@
                 editMode.classList.add('hidden');
               }
               
-              // 实时更新预览
+              // 更新预览，显示所有已完成的批次
               if (markdownPreview) {
                 renderMarkdownPreview(tempResult);
                 // 滚动到底部以显示最新内容
@@ -545,7 +573,7 @@
               // 同时更新 currentResultData，以便后续使用
               currentResultData = tempResult;
             } catch (e) {
-              console.error('更新流式预览失败:', e, e.stack);
+              console.error('更新批次完成预览失败:', e, e.stack);
             }
           },
           onError: (error) => {
@@ -560,8 +588,28 @@
         editBtn.disabled = false;
         nextBtn.disabled = false;
         
-        // 使用合并后的响应数据渲染结果
-        renderResult(mergedResult);
+        // 过滤掉 <think> 标签后再渲染最终结果
+        let filteredResult = mergedResult;
+        if (mergedResult && mergedResult.data && mergedResult.data.outputs && mergedResult.data.outputs.content) {
+          filteredResult = {
+            ...mergedResult,
+            data: {
+              ...mergedResult.data,
+              outputs: {
+                ...mergedResult.data.outputs,
+                content: mergedResult.data.outputs.content.map(item => ({
+                  ...item,
+                  content: filterRedactedReasoning(item.content || '')
+                }))
+              }
+            }
+          };
+        } else if (typeof mergedResult === 'string') {
+          filteredResult = filterRedactedReasoning(mergedResult);
+        }
+        
+        // 使用过滤后的响应数据渲染结果
+        renderResult(filteredResult);
         
         // 执行后切换到预览模式
         editMode.classList.add('hidden');
@@ -569,8 +617,8 @@
         editBtn.textContent = '编辑模式';
         saveBtn.disabled = true;
         
-        // 保存完整响应数据
-        const result = mergedResult;
+        // 保存过滤后的响应数据
+        const result = filteredResult;
 
         // 保存所有修改的内容
         Store.setState({
