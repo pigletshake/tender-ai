@@ -300,7 +300,7 @@
     const prevInputEditBtn = document.getElementById('prevInputEditBtn');
     const userReq = document.getElementById('userReq');
     const runBtn = document.getElementById('runBtn');
-    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectAllBtn = document.getElementById('selectAllBtn'); // 可能不存在，需要检查
     const saveBtn = document.getElementById('saveBtn');
     const nextBtn = document.getElementById('nextBtn');
 
@@ -560,8 +560,8 @@
     }
 
 
-    // 收集上一步结果内容（只收集被选中的）
-    // 返回：始终返回数组的 JSON 字符串，格式为 [{ "id": "...", "title": "...", "content": "..." }]
+    // 收集上一步结果内容（默认收集全部章节，不考虑checkbox选中状态）
+    // 返回：JSON 字符串，格式为 "[{\"id\":\"...\",\"title\":\"...\",\"content\":\"...\"}, ...]"
     function collectPrevInput() {
       // 无论是否在编辑模式，都从 textarea 获取最新内容（如果 textarea 存在）
       const textareas = prevInputContainer.querySelectorAll('.chapter-edit textarea');
@@ -575,24 +575,18 @@
       
       if (chapterData.length === 0) return '';
       
-      // 构建结果数组，只收集被选中的章节
-      const resultArray = [];
-      chapterData.forEach((item, index) => {
-        const chapterDiv = prevInputContainer.querySelector(`[data-chapter-id="${item.id}"]`);
-        const checkbox = chapterDiv?.querySelector('input[type="checkbox"]');
-        
-        // 只收集被选中的内容
-        if (!checkbox || checkbox.checked) {
-          resultArray.push({
-            id: item.id,
-            title: item.title,
-            content: item.content
-          });
-        }
-      });
+      // 构建结果数组，收集所有章节（默认全部检查，不考虑checkbox状态）
+      const resultArray = chapterData.map((item, index) => ({
+        id: item.id || `batch-${index + 1}`,
+        title: item.title || `章节 ${index + 1}`,
+        content: item.content || ''
+      }));
       
-      // 直接返回数组的 JSON 字符串
-      return JSON.stringify(resultArray);
+      // 返回 JSON 字符串，确保所有章节都被包含
+      const jsonString = JSON.stringify(resultArray);
+      console.log(`[收集章节] 共收集 ${resultArray.length} 个章节:`, resultArray.map(c => c.title || c.id));
+      console.log(`[收集章节] JSON 字符串长度:`, jsonString.length);
+      return jsonString;
     }
 
 
@@ -686,21 +680,53 @@
     runBtn.addEventListener('click', async () => {
       try {
         const apiKey = API.DIFY_CONFIG.apiKeys.step5;
+        
+        // 收集所有章节内容（默认全部检查，不考虑checkbox状态）
         const prevInputContent = collectPrevInput();
         
-        // 验证输入：必须是字符串且非空
+        // 验证输入：必须是 JSON 字符串且非空
         if (typeof prevInputContent !== 'string' || !prevInputContent.trim()) {
           UI.showError('请先填写上一步结果（步骤4输出）');
           return;
         }
         
+        // 验证提交的章节数量
+        try {
+          const submittedChapters = JSON.parse(prevInputContent);
+          console.log(`[提交检查] 准备检查 ${submittedChapters.length} 个章节:`, submittedChapters.map(c => c.title || c.id));
+          if (submittedChapters.length === 0) {
+            UI.showError('没有可检查的章节，请确保至少有一个章节');
+            return;
+          }
+          // 打印前100个字符预览
+          console.log(`[提交检查] JSON 字符串预览:`, prevInputContent.substring(0, 100) + '...');
+        } catch (e) {
+          console.error('无法解析提交的章节数据:', e);
+          UI.showError('章节数据格式错误，请重试');
+          return;
+        }
+        
+        // 禁用按钮，显示加载状态
+        runBtn.disabled = true;
+        runBtn.textContent = '处理中...';
+        
+        // 传递 JSON 字符串给 Dify API（与之前格式一致）
         const inputs = {
           check_type: checkType.value,
-          previous_result: prevInputContent, // 始终是字符串类型
+          previous_result: prevInputContent, // JSON 字符串格式: "[{\"id\":\"...\",\"title\":\"...\",\"content\":\"...\"}, ...]"
         };
         if (userReq.value.trim()) {
           inputs[API.DIFY_CONFIG.inputKeys.userRequirementsKey || 'user_requirements'] = userReq.value.trim();
         }
+        
+        console.log(`[提交检查] 最终 inputs.previous_result 类型:`, typeof inputs.previous_result);
+        console.log(`[提交检查] 最终 inputs.previous_result 长度:`, inputs.previous_result.length);
+        console.log(`[提交检查] 完整的 inputs 对象:`, JSON.stringify(inputs, null, 2));
+        console.log(`[提交检查] 完整的请求 body:`, JSON.stringify({
+          inputs,
+          response_mode: 'blocking',
+          user: API.DIFY_CONFIG.user,
+        }, null, 2));
 
         // 调用 API 获取完整响应
         const response = await fetch(`${API.DIFY_CONFIG.baseURL}/workflows/run`, {
@@ -726,24 +752,45 @@
           throw new Error(responseData.data.error);
         }
         
+        // 打印完整的响应数据结构，用于调试
+        console.log(`[API响应] 完整响应数据:`, JSON.stringify(responseData, null, 2));
+        console.log(`[API响应] outputs 结构:`, responseData?.data?.outputs);
+        console.log(`[API响应] outputs.output 类型:`, typeof responseData?.data?.outputs?.output);
+        console.log(`[API响应] outputs.output 是否为数组:`, Array.isArray(responseData?.data?.outputs?.output));
+        if (responseData?.data?.outputs?.output) {
+          console.log(`[API响应] outputs.output 长度:`, responseData.data.outputs.output.length);
+          console.log(`[API响应] outputs.output 内容:`, responseData.data.outputs.output);
+        }
+        
         // 接口返回的结果处理
         // 1. 提取 outputs.output 数组中的章节检查结果
         // 2. 提取 outputs.text 作为全局检查结果
         try {
           // 提取章节检查结果（outputs.output）
           if (responseData?.data?.outputs?.output && Array.isArray(responseData.data.outputs.output)) {
+            console.log(`[处理结果] 找到 ${responseData.data.outputs.output.length} 个章节检查结果`);
             // 清空之前的检查结果
             chapterCheckResults = {};
             
             // 将检查结果按 id 匹配到对应章节
-            responseData.data.outputs.output.forEach((item) => {
+            responseData.data.outputs.output.forEach((item, index) => {
+              console.log(`[处理结果] 章节 ${index + 1}:`, {
+                id: item.id,
+                hasContent: !!item.content,
+                hasSummary: !!item.summary,
+                contentLength: item.content?.length || 0
+              });
               if (item.id) {
                 chapterCheckResults[item.id] = {
                   content: item.content || '',
                   summary: item.summary || ''
                 };
+              } else {
+                console.warn(`[处理结果] 警告：章节 ${index + 1} 没有 id 字段:`, item);
               }
             });
+            
+            console.log(`[处理结果] 最终 chapterCheckResults 数量:`, Object.keys(chapterCheckResults).length);
             
             // 保存到缓存
             Store.setState({
@@ -816,28 +863,37 @@
           step5CheckType: checkType.value,
           step5UserReq: userReq.value.trim(),
         });
+        
+        // 恢复按钮状态
+        runBtn.disabled = false;
+        runBtn.textContent = '提交';
       } catch (err) {
+        // 出错时也要恢复按钮状态
+        runBtn.disabled = false;
+        runBtn.textContent = '提交';
         UI.showError(err.message);
       }
     });
 
-    // 全选/取消全选功能
-    let isAllSelected = true;
-    selectAllBtn.addEventListener('click', () => {
-      // 获取所有 checkbox（章节选择框）
-      const allCheckboxes = prevInputContainer.querySelectorAll('input[type="checkbox"]');
-      
-      if (allCheckboxes.length === 0) return;
-      
-      // 切换所有 checkbox 的状态
-      isAllSelected = !isAllSelected;
-      allCheckboxes.forEach(checkbox => {
-        checkbox.checked = isAllSelected;
+    // 全选/取消全选功能（如果按钮存在）
+    if (selectAllBtn) {
+      let isAllSelected = true;
+      selectAllBtn.addEventListener('click', () => {
+        // 获取所有 checkbox（章节选择框）
+        const allCheckboxes = prevInputContainer.querySelectorAll('input[type="checkbox"]');
+        
+        if (allCheckboxes.length === 0) return;
+        
+        // 切换所有 checkbox 的状态
+        isAllSelected = !isAllSelected;
+        allCheckboxes.forEach(checkbox => {
+          checkbox.checked = isAllSelected;
+        });
+        
+        // 更新按钮文本
+        selectAllBtn.textContent = isAllSelected ? '全选' : '取消全选';
       });
-      
-      // 更新按钮文本
-      selectAllBtn.textContent = isAllSelected ? '全选' : '取消全选';
-    });
+    }
 
     // 收集所有步骤内容并合并为 Markdown 格式
     function collectAllContentAsMarkdown() {
@@ -912,10 +968,17 @@
     }
 
     saveBtn.addEventListener('click', () => {
-      // 保存当前状态
+      // 保存当前状态（包括检查结果）
+      const state = Store.getState();
       Store.setState({
         step5CheckType: checkType.value,
         step5UserReq: userReq.value.trim(),
+        // 确保检查结果也被保存
+        step5ChapterCheckResults: chapterCheckResults,
+        step5GlobalCheckResult: globalCheckResult,
+        step5Result: state.step5Result || currentResultData, // 保持原有的完整响应数据
+        // 同时保存章节数据（如果用户编辑了）
+        step4Result: state.step4Result // 保持步骤4的结果
       });
       window.location.href = 'step6-merge.html';
     });

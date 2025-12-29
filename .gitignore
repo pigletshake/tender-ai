@@ -19,3 +19,7 @@ npm-debug.log*
 *.tmp
 *.temp
 
+# 本地临时脚本/密钥（禁止入库）
+token.py
+test.py
+

@@ -153,6 +153,8 @@
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/ui.js"></script>
   <script src="../assets/js/api.js"></script>
+  <!-- Markdown 渲染兜底（离线可用） -->
+  <script src="../assets/js/markdown.js"></script>
   <!-- Markdown 渲染库 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
   <script>
@@ -167,14 +169,17 @@
     const editMode = document.getElementById('editMode');
     const markdownPreview = document.getElementById('markdownPreview');
 
+    function renderMarkdown(md) {
+      // 优先使用 marked（更完整），否则使用本地兜底 Markdown.parse
+      if (window.marked && typeof window.marked.parse === 'function') return window.marked.parse(md || '');
+      if (window.Markdown && typeof window.Markdown.parse === 'function') return window.Markdown.parse(md || '');
+      return String(md || '');
+    }
+
     // 渲染 Markdown 预览
     function renderMarkdownPreview() {
       const markdown = resultArea.value;
-      if (marked) {
-        markdownPreview.innerHTML = marked.parse(markdown);
-      } else {
-        markdownPreview.textContent = markdown;
-      }
+      markdownPreview.innerHTML = renderMarkdown(markdown);
     }
 
     // 读取已有状态
@@ -205,11 +210,7 @@
       resultArea.value = textContent;
       
       // 直接渲染 Markdown 预览
-      if (textContent && marked) {
-        markdownPreview.innerHTML = marked.parse(textContent);
-      } else {
-        markdownPreview.textContent = textContent || '暂无内容';
-      }
+      markdownPreview.innerHTML = renderMarkdown(textContent || '暂无内容');
       
       // 确保显示预览模式
       previewMode.classList.remove('hidden');
@@ -331,11 +332,7 @@
                     fullText += data.data.text;
                     // 实时更新预览（流式显示）
                     resultArea.value = fullText;
-                    if (marked) {
-                      markdownPreview.innerHTML = marked.parse(fullText);
-                    } else {
-                      markdownPreview.textContent = fullText;
-                    }
+                    markdownPreview.innerHTML = renderMarkdown(fullText);
                   }
                 } else if (data.event === 'workflow_finished') {
                   // 工作流完成，提取最终结果
@@ -402,11 +399,7 @@
           resultArea.value = textContent;
           
           // 最终渲染 Markdown 预览
-          if (textContent && marked) {
-            markdownPreview.innerHTML = marked.parse(textContent);
-          } else {
-            markdownPreview.textContent = textContent || '暂无内容';
-          }
+          markdownPreview.innerHTML = renderMarkdown(textContent || '暂无内容');
           
           // 确保显示预览模式
           previewMode.classList.remove('hidden');
